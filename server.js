@@ -1,70 +1,90 @@
 
 // DEPENDENCIES
-var express = require('express');
-var io = require('socket.io');
+var express, io;
+express = require('express');
+io 		= require('socket.io');
 
-(function pongserver() {
+(function PongServer() {
 	
-	var server, socket, players, plRight, plLeft, interval;
+	var server, socket, gamers, nRight, nLeft, interval;
 
 	server = express.createServer();
 	server.listen(50000);
 
 	socket = io.listen(server);
-	players = {};
-	plRight = 0;
-	plLeft = 0;
+	gamers = {};
+	nRight = 0;
+	nLeft = 0;
 
 	socket.on('connection', function (client) {
 		
 		console.log('Player ' + client.sessionId + ' has connected');	
 
-		var obj, positionLeft;
-		if (plRight < plLeft) {
-			positionLeft = 785;
-			plRight = plRight + 1;
+		var posLeft, gamer;
+		
+		if (nRight < nLeft) {
+			posLeft = 785;
+			nRight = nRight + 1;
 		} else {
-			positionLeft = 0;
-			plLeft = plLeft + 1;
+			posLeft = 0;
+			nLeft = nLeft + 1;
 		}
 
-		obj = { id: client.sessionId, moving: false, direction: -10, position: { top: 215, left: positionLeft } };
+		gamer = { 
+			id: client.sessionId,
+			moving: false,
+			direction: 5,
+			position: { 
+				top: 215, 
+				left: posLeft
+			}
+		};
 
-		client.send(obj);
-		players[client.sessionId] = obj;
+		client.send(gamer);
+		gamers[gamer.id] = gamer;
 
-		client.on('message', function (data) { 
+		client.on('message', function (data) {
 			
-			var player 					= players[client.sessionId];
-				player.moving 			= data.moving;
-				player.direction 		= data.direction;
-				player.position.top 	= data.position.top;				
+			gamer.moving = data.moving;
+			gamer.direction = data.direction;
+			gamers[gamer.id] = gamer;		
 		});
 
 		client.on('disconnect', function () {
 			
-			console.log('Player ' + client.sessionId + ' has disconnected');
-
-			if (obj.position.left === 0) {
-				plLeft = plLeft - 1
+			if (gamer.position.left === 0) {
+				nLeft = nLeft - 1
 			} else {
-				plRight = plRight - 1
+				nRight = nRight - 1
 			}
 
-			client.broadcast(obj);
-			delete players[client.sessionId];
+			client.broadcast(gamer);
+			delete gamers[gamer.id];
+			
+			console.log('Player ' + client.sessionId + ' has disconnected');
 		});
 		
 	});
 
 	interval = setInterval(function () {
-		for (obj in players) {
-			var player = players[obj];			
-			if (player.moving === true) {
-				player.position.top = player.position.top + player.direction;
+		
+		var gamer, newTop;
+		for (obj in gamers) {
+			
+			gamer = gamers[obj];		
+			if (gamer.moving === true) {
+				
+				newTop = gamer.position.top + gamer.direction;
+				if (newTop < 0) {
+					newTop = 0;
+				} else if (newTop > 430) {
+					newTop = 430;
+				}
+				gamer.position.top = newTop;				
 			}
 		}
-		socket.broadcast(players);
+		socket.broadcast(gamers);
+		
 	}, 25);
 	
 }());

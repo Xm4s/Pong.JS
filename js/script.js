@@ -1,97 +1,141 @@
 
-(function pongclient() {
+(function PongClient() {
 	
-	var socket = new io.Socket('spellbook.local', {'port':'50000'});
-	socket.connect();
-	
-	socket.on('connect', function () {
-		console.log('Connected to node socket');
-	}); 
-
-	socket.on('message', function (data) {
-
-		var player, selector, $racket;
-
-		if (data.hasOwnProperty('id')) {
-
-			selector = '#ID-' + data.id;
-			if ($(selector).length !== 0) {	
-				
-				$(selector).remove();
+	var socket, field, player;
+		
+	socket = {
+		
+		io: null,
+		
+		init: function init() {
 			
-			} else {
+			socket.io = new io.Socket('spellbook.local', {'port':'50000'});
+			socket.io.connect();
+			
+			socket.io.on('connect', function () {
+				console.log('Connected to node socket');		
+			});
+			
+			socket.io.on('message', function (data) {
 				
-				$('#field').append('<div id="ID-' + data.id + '" class="racket red"></div>');
+				var id, elem
 				
-				$racket = $(selector);
-				$racket.css({
-					'top': data.position.top + 'px',
-					'left': data.position.left + 'px'
-				});
-
-				$(window).bind('keydown', function(e) {
-					var keycode, data;
-					keycode = e.keyCode;
-					if (keycode === 38 || keycode === 40) {
-						e.preventDefault();
-						data = {
-							moving: true,
-							direction: -10,
-							position: {
-								top: parseInt($racket.position().top, 10)
-							}
-						};
-						
-						if (keycode === 40) {
-							data.direction = 10;
-						}
+				if (data.hasOwnProperty('id')) {
 					
-						socket.send(data);
-					}					
-				}).bind('keyup', function(e) {
-					var keycode, data;
-					keycode = e.keyCode;
-					if (keycode === 38 || keycode === 40) {
-						e.preventDefault();
-						data = {
-							moving: false,
-							direction: 10,
-							position: {
-								top: parseInt($racket.position().top, 10)
-							}
-						};
+					elem = document.getElementById('ID-' + data.id);
+					if (elem === null) {
+						players.me.init(data);
+					} else {
+						players.others.deInit(elem);
+					}
+					
+				} else {
+					
+					for (obj in data) {
 						
-						if (keycode === 40) {
-							data.direction = -10;
+						id = 'ID-' + data[obj].id;
+						elem = document.getElementById(id);
+						if (elem === null) {
+							players.others.init(id);
+						}
+						players.update(data[obj]);
+					}					
+				}
+				
+			});
+			
+			socket.io.on('disconnect', function () {
+				console.log('Disconnected from node socket');
+			});
+		}
+	}
+	
+	field = document.getElementById('field');
+	
+	players = {
+		
+		me: {
+			
+			elem: null,
+			moving: false,
+			
+			init: function init(data) {
+				
+				var id, elem;
+				
+				id = 'ID-' + data.id;
+				$(field).append('<div id="' + id + '" class="racket red"></div>');
+								
+				players.update(data);
+				this.elem = document.getElementById(id);
+								
+				$(window).bind('keydown', this.onMove).bind('keyup', this.onMove);
+			},
+			
+			onMove: function onMove(e) {
+				
+				var that, type, keycode, data;
+				
+				that = players.me;
+				type = e.type;
+				keycode = e.keyCode;
+				
+				
+				if (keycode === 38 || keycode == 40) {		
+					e.preventDefault();
+					
+					if (type === 'keydown' && that.moving === false) {
+						
+						that.moving = true;
+						data = {
+							moving: that.moving,
+							direction: 5,
 						}
 						
-						socket.send(data);
-					}	
-				});
-			}
-
-		} else {
-
-			for (name in data) {
-
-				player = data[name];
-				selector = '#ID-' + player.id;
-				if ($(selector).length === 0) {
-					$('#field').append('<div id="ID-' + player.id + '" class="racket"></div>');
+						if (keycode === 38) {
+							data.direction = -5
+						}
+						socket.io.send(data);
+						
+					} else if (type === 'keyup' && that.moving === true) {
+						
+						that.moving = false;
+						data = {
+							moving: that.moving,
+							direction: -5,
+						}
+						
+						if (keycode === 38) {
+							data.direction = 5;
+						}
+						
+						socket.io.send(data);
+					}
 				}
-								
-				$(selector).css({
-					'top': player.position.top + 'px',
-					'left': player.position.left + 'px'
-				});
 			}
-		}			
-	});
-
-	socket.on('disconnect', function () {
-		console.log('Disconnected from node socket');
-	});
+		},
+		
+		others: {
+			
+			init: function init(id) {
+				$(field).append('<div id="' + id + '" class="racket"></div>');
+			},
+			
+			deInit: function deInit(elem) {
+				$(elem).remove();
+			}
+		},
+		
+		update: function update(data) {
+						
+			var elem = document.getElementById('ID-' + data.id);
+			$(elem).css({
+				'top': data.position.top + 'px',
+				'left': data.position.left + 'px'
+			});
+		}
+	}
 	
-	
-	
+	$(document).ready(function () { socket.init(); });
+		
 }());

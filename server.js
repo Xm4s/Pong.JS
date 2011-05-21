@@ -28,7 +28,7 @@ var io = require('socket.io');
 			plLeft = plLeft + 1;
 		}
 
-		obj = { id: client.sessionId, moving: false, direction: -1, position: { top: 215, left: positionLeft } };
+		obj = { id: client.sessionId, moving: false, direction: -10, position: { top: 215, left: positionLeft } };
 
 		client.send(obj);
 		players[client.sessionId] = obj;
@@ -38,8 +38,7 @@ var io = require('socket.io');
 			var player 					= players[client.sessionId];
 				player.moving 			= data.moving;
 				player.direction 		= data.direction;
-				player.position.top 	= data.position.top;
-				player.position.left 	= data.position.left;			
+				player.position.top 	= data.position.top;				
 		});
 
 		client.on('disconnect', function () {
@@ -59,12 +58,13 @@ var io = require('socket.io');
 	});
 
 	interval = setInterval(function () {
-		for (player in players) {
+		for (obj in players) {
+			var player = players[obj];			
 			if (player.moving === true) {
 				player.position.top = player.position.top + player.direction;
 			}
 		}
 		socket.broadcast(players);
-	}, 5000);
+	}, 25);
 	
 }());

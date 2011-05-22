@@ -1,9 +1,7 @@
 
 (function PongServer() {
-	
-	console.log(Math.random());
-	
-	var express, server, io, socket, rackets, Racket, balls, Ball, nBals, nRigt, nLeft, update;
+		
+	var express, server, io, socket, data, Racket, Ball, nBals, nRigt, nLeft, update;
 	
 	express = require('express');
 	server = express.createServer();
@@ -11,8 +9,9 @@
 	
 	io = require('socket.io');
 	socket = io.listen(server);
-
-	rackets = {};
+	
+	data = {};
+	
 	Racket = function Racket (id) {
 			
 		var offsetLeft;
@@ -26,6 +25,7 @@
 		}
 			
 		this.id = id,
+		this.type = 'racket',
 		this.moving = false,
 		this.velocity = {
 			x: 0,
@@ -37,14 +37,12 @@
 		}
 	};
 	
-	balls = {};
 	Ball = function Ball (id) {
-		
-		var x, y;
-		
+				
 		nBals = nBals + 1;
 		
 		this.id = id,
+		this.type = 'ball',
 		this.moving = true,
 		this.velocity = {
 			x: 5 * (Math.round(Math.random())*2 - 1),
@@ -53,31 +51,34 @@
 		this.position = { 
 			top: 245, 
 			left: 395
-		}
+		}		
 	}
 	
 	nBals = 0;
 	nRigt = 0;
 	nLeft = 0;
-	
+		
 	socket.on('connection', function (client) {
 		
 		console.log('Player ' + client.sessionId + ' has connected');	
 
-		var id, racket;
+		var id, ball, racket;
+		
+		if (nBals === 0) {
+			id = 'ball-' + nBals;
+			ball = new Ball(id);
+			data[id] = ball;
+		}
 		
 		id = client.sessionId;
 		racket = new Racket(id); 
 
 		client.send(racket);
-		rackets[id] = racket;
-
-		client.on('message', function (data) {
-			
-			console.log(data);
-			
-			rackets[id].moving = data.moving;
-			rackets[id].velocity.y = data.velocity.y;
+		data[id] = racket;
+		
+		client.on('message', function (msg) {
+			data[id].moving = msg.moving;
+			data[id].velocity.y = msg.velocity.y;
 		});
 
 		client.on('disconnect', function () {
@@ -89,7 +90,7 @@
 			}
 
 			client.broadcast(racket);
-			delete rackets[racket.id];
+			delete data[racket.id];
 			
 			console.log('Player ' + client.sessionId + ' has disconnected');
 		});
@@ -98,21 +99,46 @@
 	
 	update = setInterval(function () {
 		
-		var racket, newTop;
-		for (obj in rackets) {
+		var obj, velocity, position, newTop, newLeft;
+		for (id in data) {
 			
-			racket = rackets[obj];		
-			if (racket.moving === true) {
-								
-				newTop = racket.position.top + racket.velocity.y;
-				newTop = Math.max(0, newTop);
-				newTop = Math.min(newTop, 440);
+			obj = data[id];		
+			if (obj.moving === true) {
 				
-				racket.position.top = newTop;				
+				velocity = obj.velocity;
+				position = obj.position;
+				
+				if (obj.type === 'racket') {
+								
+					newTop = position.top + velocity.y;
+					newTop = Math.max(0, newTop);
+					newTop = Math.min(newTop, 440);
+					position.top = newTop;
+				
+				} else {
+					
+					newTop = position.top + velocity.y;					
+					newTop = Math.max(0, newTop);
+					newTop = Math.min(newTop, 490);
+					position.top = newTop;					
+					if (newTop === 0 || newTop === 490) {
+						velocity.y = -velocity.y;
+					}
+
+					newLeft = position.left + velocity.x;
+					newLeft = Math.max(15, newLeft);
+					newLeft = Math.min(newLeft, 790);
+					position.left = newLeft;
+					if (newLeft === 15 || newLeft === 790) {
+						velocity.x = -velocity.x;
+					}
+				}
 			}
 		}
-		socket.broadcast(rackets);
+		socket.broadcast(data);
 		
 	}, 25);
+	
+	// TODO: Hit test = racket.top < ball.top + 15 && ball.top < racket.top + 65;
 	
 }());

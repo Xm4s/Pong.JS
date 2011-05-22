@@ -127,6 +127,13 @@ html, body {
 	background-color: #fff;
 }
 
+.ball {
+	width: 15px;
+	height: 15px;
+	position: absolute;
+	background-color: #fff;
+}
+
 .red {
 	background-color: #f00;
 	z-index: 100000;

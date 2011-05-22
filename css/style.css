@@ -112,8 +112,8 @@ html, body {
 }
 
 #field {
-	width: 800px;
-	height: 500px;
+	width: 805px;
+	height: 505px;
 	margin: 50px auto 0;
 	border-top: 15px solid #fff;
 	border-bottom: 15px solid #fff;
@@ -122,10 +122,9 @@ html, body {
 
 .racket {
 	width: 15px;
-	height: 70px;
+	height: 65px;
 	position: absolute;
 	background-color: #fff;
-	top: 215px;
 }
 
 .red {

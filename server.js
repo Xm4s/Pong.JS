@@ -1,89 +1,117 @@
 
-// DEPENDENCIES
-var express, io;
-express = require('express');
-io 		= require('socket.io');
-
 (function PongServer() {
 	
-	var server, socket, gamers, nRight, nLeft, interval;
-
+	console.log(Math.random());
+	
+	var express, server, io, socket, rackets, Racket, balls, Ball, nBals, nRigt, nLeft, update;
+	
+	express = require('express');
 	server = express.createServer();
-	server.listen(50000);
-
+	server.listen(55555);
+	
+	io = require('socket.io');
 	socket = io.listen(server);
-	gamers = {};
-	nRight = 0;
-	nLeft = 0;
 
+	rackets = {};
+	Racket = function Racket (id) {
+			
+		var offsetLeft;
+		
+		if (nRigt < nLeft) {
+			offsetLeft = 790;
+			nRigt = nRigt + 1;
+		} else {
+			offsetLeft = 0;
+			nLeft = nLeft + 1;
+		}
+			
+		this.id = id,
+		this.moving = false,
+		this.velocity = {
+			x: 0,
+			y: 5
+		},
+		this.position = { 
+			top: 220, 
+			left: offsetLeft
+		}
+	};
+	
+	balls = {};
+	Ball = function Ball (id) {
+		
+		var x, y;
+		
+		nBals = nBals + 1;
+		
+		this.id = id,
+		this.moving = true,
+		this.velocity = {
+			x: 5 * (Math.round(Math.random())*2 - 1),
+			y: 5 * (Math.round(Math.random())*2 - 1)
+		},
+		this.position = { 
+			top: 245, 
+			left: 395
+		}
+	}
+	
+	nBals = 0;
+	nRigt = 0;
+	nLeft = 0;
+	
 	socket.on('connection', function (client) {
 		
 		console.log('Player ' + client.sessionId + ' has connected');	
 
-		var posLeft, gamer;
+		var id, racket;
 		
-		if (nRight < nLeft) {
-			posLeft = 785;
-			nRight = nRight + 1;
-		} else {
-			posLeft = 0;
-			nLeft = nLeft + 1;
-		}
+		id = client.sessionId;
+		racket = new Racket(id); 
 
-		gamer = { 
-			id: client.sessionId,
-			moving: false,
-			direction: 5,
-			position: { 
-				top: 215, 
-				left: posLeft
-			}
-		};
-
-		client.send(gamer);
-		gamers[gamer.id] = gamer;
+		client.send(racket);
+		rackets[id] = racket;
 
 		client.on('message', function (data) {
 			
-			gamer.moving = data.moving;
-			gamer.direction = data.direction;
-			gamers[gamer.id] = gamer;		
+			console.log(data);
+			
+			rackets[id].moving = data.moving;
+			rackets[id].velocity.y = data.velocity.y;
 		});
 
 		client.on('disconnect', function () {
 			
-			if (gamer.position.left === 0) {
+			if (racket.position.left === 0) {
 				nLeft = nLeft - 1
 			} else {
-				nRight = nRight - 1
+				nRigt = nRigt - 1
 			}
 
-			client.broadcast(gamer);
-			delete gamers[gamer.id];
+			client.broadcast(racket);
+			delete rackets[racket.id];
 			
 			console.log('Player ' + client.sessionId + ' has disconnected');
 		});
 		
 	});
-
-	interval = setInterval(function () {
+	
+	update = setInterval(function () {
 		
-		var gamer, newTop;
-		for (obj in gamers) {
+		var racket, newTop;
+		for (obj in rackets) {
 			
-			gamer = gamers[obj];		
-			if (gamer.moving === true) {
+			racket = rackets[obj];		
+			if (racket.moving === true) {
+								
+				newTop = racket.position.top + racket.velocity.y;
+				newTop = Math.max(0, newTop);
+				newTop = Math.min(newTop, 440);
 				
-				newTop = gamer.position.top + gamer.direction;
-				if (newTop < 0) {
-					newTop = 0;
-				} else if (newTop > 430) {
-					newTop = 430;
-				}
-				gamer.position.top = newTop;				
+				racket.position.top = newTop;				
 			}
 		}
-		socket.broadcast(gamers);
+		socket.broadcast(rackets);
 		
 	}, 25);
 	

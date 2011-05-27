@@ -1,7 +1,15 @@
 
+require.paths.push('/usr/local/lib/node_modules');
+
 (function PongServer() {
 		
-	var express, server, io, socket, data, Racket, Ball, nBals, nRigt, nLeft, update;
+	var options, express, server, io, socket, data, Racket, Ball, nBals, nRigt, nLeft, update;
+	
+	options = {
+		field: { w: 1005, h: 565, },
+		racket: { w: 15, h: 65, v: 5},
+		ball: { w: 15, h: 15, v: 5 }
+	}
 	
 	express = require('express');
 	server = express.createServer();
@@ -14,10 +22,13 @@
 	
 	Racket = function Racket (id) {
 			
-		var offsetLeft;
+		var field, racket, offsetLeft;
+		
+		field = options.field;
+		racket = options.racket;
 		
 		if (nRigt < nLeft) {
-			offsetLeft = 790;
+			offsetLeft = field.w - racket.w;
 			nRigt = nRigt + 1;
 		} else {
 			offsetLeft = 0;
@@ -29,15 +40,20 @@
 		this.moving = false,
 		this.velocity = {
 			x: 0,
-			y: 5
+			y: options.racket.v
 		},
 		this.position = { 
-			top: 220, 
+			top: (field.h - racket.h)/2, 
 			left: offsetLeft
 		}
 	};
 	
 	Ball = function Ball (id) {
+		
+		var field, ball;
+		
+		field = options.field;
+		ball = options.ball;
 				
 		nBals = nBals + 1;
 		
@@ -45,12 +61,12 @@
 		this.type = 'ball',
 		this.moving = true,
 		this.velocity = {
-			x: 5 * (Math.round(Math.random())*2 - 1),
-			y: 5 * (Math.round(Math.random())*2 - 1)
+			x: ball.v * (Math.round(Math.random())*2 - 1),
+			y: ball.v * (Math.round(Math.random())*2 - 1)
 		},
 		this.position = { 
-			top: 245, 
-			left: 395
+			top: (field.h - ball.h)/2, 
+			left: (field.w - ball.w)/2
 		}		
 	}
 	
@@ -99,7 +115,12 @@
 	
 	update = setInterval(function () {
 		
-		var obj, velocity, position, newTop, newLeft;
+		var field, racket, ball, obj, velocity, position, newTop, newLeft;
+		
+		field = options.field;
+		racket = options.racket;
+		ball = options.ball;
+		
 		for (id in data) {
 			
 			obj = data[id];		
@@ -112,24 +133,24 @@
 								
 					newTop = position.top + velocity.y;
 					newTop = Math.max(0, newTop);
-					newTop = Math.min(newTop, 440);
+					newTop = Math.min(newTop, (field.h - racket.h));
 					position.top = newTop;
 				
 				} else {
 					
 					newTop = position.top + velocity.y;					
 					newTop = Math.max(0, newTop);
-					newTop = Math.min(newTop, 490);
+					newTop = Math.min(newTop, field.h - ball.h);
 					position.top = newTop;					
-					if (newTop === 0 || newTop === 490) {
+					if (newTop === 0 || newTop === field.h - ball.h) {
 						velocity.y = -velocity.y;
 					}
 
 					newLeft = position.left + velocity.x;
-					newLeft = Math.max(15, newLeft);
-					newLeft = Math.min(newLeft, 790);
+					newLeft = Math.max(ball.w, newLeft);
+					newLeft = Math.min(newLeft, field.w - ball.w);
 					position.left = newLeft;
-					if (newLeft === 15 || newLeft === 790) {
+					if (newLeft === ball.w || newLeft === field.w - ball.w) {
 						velocity.x = -velocity.x;
 					}
 				}

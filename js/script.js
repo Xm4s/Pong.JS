@@ -118,11 +118,6 @@
 		
 	update = function update(data) {
 		
-		if (data.type === 'ball') {
-			
-			console.dir(data);
-		}
-					
 		$(document.getElementById('ID-' + data.id)).css({
 			'top': data.position.top + 'px',
 			'left': data.position.left + 'px'

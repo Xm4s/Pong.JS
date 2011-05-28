@@ -52,7 +52,7 @@
 		init: function init(data) {
 								
 			var id = 'ID-' + data.id;
-			$(field).append('<div id="' + id + '" class="racket red"></div>');
+			$(field).append('<div id="' + id + '" class="racket me"></div>');
 			
 			update(data);
 			

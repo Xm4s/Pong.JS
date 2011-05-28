@@ -113,11 +113,13 @@ html, body {
 
 #field {
 	width: 1005px;
-	height: 565px;
+	height: 585px;
 	margin: 50px auto 0;
+	background: url('../gfx/bg.gif') center top repeat-y;
 	border-top: 15px solid #fff;
 	border-bottom: 15px solid #fff;
 	position: relative;
+	overflow: hidden;
 }
 
 .racket {
@@ -134,7 +136,7 @@ html, body {
 	position: absolute;
 }
 
-.red {
-	background-color: #f00;
+.me {
+	background-color: #0f0;
 	z-index: 100000;
 }

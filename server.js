@@ -14,7 +14,7 @@ require.paths.push('/usr/local/lib/node_modules');
 	io = require('socket.io');
 	socket = io.listen(server);
 		
-	pField = { w: 1005, h: 565 };
+	pField = { w: 1005, h: 585 };
 	pRacket = { w: 15, h: 65, v: 5 };
 	pBall = { w: 15, h: 15, v: 5 };
 		

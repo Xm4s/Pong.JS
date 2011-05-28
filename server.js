@@ -64,6 +64,7 @@ require.paths.push('/usr/local/lib/node_modules');
 			top: (pField.h - pBall.h) / 2,
 			left: (pField.w - pBall.w) / 2
 		};
+		this.hit = 0;
 	};
 		
 	socket.on('connection', function (client) {
@@ -175,29 +176,55 @@ require.paths.push('/usr/local/lib/node_modules');
 		
 		hitCheck: function hitCheck(obj, side) {
 			
-			var isLeft, offsetLeft, objSpace, objTop, id, racketLeft, racketTop;
-			
+			var isLeft, offsetLeft, objTop, objSpace, id, racketLeft, racketTop;
+						
 			isLeft = (side === pRacket.w);
 			if ((isLeft && nLeft === 0) || (!isLeft && nRight === 0)) {
 				obj.velocity.x = -obj.velocity.x;
+				this.velocityCheck(obj);
 			} else {
+				
 				offsetLeft = pField.w - pRacket.w;
 				objTop = obj.position.top;
 				objSpace = objTop + pBall.h;
 						
 				for (id in data) {
 					if (data.hasOwnProperty(id) && data[id].type === 'racket') {
+						
 						racketLeft = data[id].position.left;
 						if ((isLeft && racketLeft === 0) || (!isLeft && racketLeft === offsetLeft)) {
+							
 							racketTop = data[id].position.top;
 							if (racketTop < objSpace && objTop < racketTop + pRacket.h) {
 								obj.velocity.x = -obj.velocity.x;
+								this.velocityCheck(obj);
 								break;
 							}
 						}
 					}
 				}
 			}	
+		},
+		
+		velocityCheck: function velocityCheck(obj) {
+			
+			var value, vel;			
+			
+			vel = obj.velocity;
+			if (obj.hit === 5) {
+				for (value in vel) {
+					if (vel.hasOwnProperty(value)) {
+						if (vel[value] < 0) {
+							vel[value] = vel[value] - 1;
+						} else {
+							vel[value] = vel[value] + 1;
+						}						
+					}
+				}
+				obj.hit = 0;
+			} else {
+				obj.hit = obj.hit + 1;
+			}
 		},
 		
 		score: function score(obj, side) {
@@ -210,6 +237,7 @@ require.paths.push('/usr/local/lib/node_modules');
 			
 			pos.top = (pField.h - pBall.h) / 2;
 			pos.left = (pField.w - pBall.w) / 2;
+			
 			vel.y = pBall.v * (Math.round(Math.random()) * 2 - 1);
 			vel.x = -pBall.v;
 			if (isLeft) {

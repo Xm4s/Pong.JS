@@ -2,14 +2,10 @@
 require.paths.push('/usr/local/lib/node_modules');
 
 (function PongServer() {
-		
-	var options, express, server, io, socket, data, Racket, Ball, nBals, nRigt, nLeft, update;
 	
-	options = {
-		field: { w: 1005, h: 565, },
-		racket: { w: 15, h: 65, v: 5},
-		ball: { w: 15, h: 15, v: 5 }
-	}
+	"use strict";
+	
+	var express, server, io, socket, pField, pRacket, pBall, nBalls, nRight, nLeft, data, Racket, Ball, update;
 	
 	express = require('express');
 	server = express.createServer();
@@ -17,71 +13,67 @@ require.paths.push('/usr/local/lib/node_modules');
 	
 	io = require('socket.io');
 	socket = io.listen(server);
+		
+	pField = { w: 1005, h: 565 };
+	pRacket = { w: 15, h: 65, v: 5 };
+	pBall = { w: 15, h: 15, v: 5 };
+		
+	nBalls = 0;
+	nRight = 0;
+	nLeft = 0;
 	
 	data = {};
 	
-	Racket = function Racket (id) {
-			
-		var field, racket, offsetLeft;
+	Racket = function Racket(id) {
 		
-		field = options.field;
-		racket = options.racket;
-		
-		if (nRigt < nLeft) {
-			offsetLeft = field.w - racket.w;
-			nRigt = nRigt + 1;
+		var offsetLeft;
+				
+		if (nRight < nLeft) {
+			offsetLeft = pField.w - pRacket.w;
+			nRight = nRight + 1;
 		} else {
 			offsetLeft = 0;
 			nLeft = nLeft + 1;
 		}
 			
-		this.id = id,
-		this.type = 'racket',
-		this.moving = false,
+		this.id = id;
+		this.type = 'racket';
+		this.moving = false;
 		this.velocity = {
 			x: 0,
-			y: options.racket.v
-		},
-		this.position = { 
-			top: (field.h - racket.h)/2, 
+			y: pRacket.v
+		};
+		this.position = {
+			top: (pField.h - pRacket.h) / 2,
 			left: offsetLeft
-		}
+		};
 	};
 	
-	Ball = function Ball (id) {
-		
-		var field, ball;
-		
-		field = options.field;
-		ball = options.ball;
+	Ball = function Ball(id) {
 				
-		nBals = nBals + 1;
+		nBalls = nBalls + 1;
 		
-		this.id = id,
-		this.type = 'ball',
-		this.moving = true,
+		this.id = id;
+		this.type = 'ball';
+		this.moving = true;
 		this.velocity = {
-			x: ball.v * (Math.round(Math.random())*2 - 1),
-			y: ball.v * (Math.round(Math.random())*2 - 1)
-		},
-		this.position = { 
-			top: (field.h - ball.h)/2, 
-			left: (field.w - ball.w)/2
-		}		
-	}
-	
-	nBals = 0;
-	nRigt = 0;
-	nLeft = 0;
+			x: pBall.v * (Math.round(Math.random()) * 2 - 1),
+			y: pBall.v * (Math.round(Math.random()) * 2 - 1)
+		};
+		this.position = {
+			top: (pField.h - pBall.h) / 2,
+			left: (pField.w - pBall.w) / 2
+		};
+	};
 		
 	socket.on('connection', function (client) {
 		
-		console.log('Player ' + client.sessionId + ' has connected');	
+		console.log('Player ' + client.sessionId + ' has connected');
 
 		var id, ball, racket;
 		
-		if (nBals === 0) {
-			id = 'ball-' + nBals;
+		if (nBalls === 0) {
+			id = 'ball-' + nBalls;
 			ball = new Ball(id);
 			data[id] = ball;
 		}
@@ -100,9 +92,9 @@ require.paths.push('/usr/local/lib/node_modules');
 		client.on('disconnect', function () {
 			
 			if (racket.position.left === 0) {
-				nLeft = nLeft - 1
+				nLeft = nLeft - 1;
 			} else {
-				nRigt = nRigt - 1
+				nRight = nRight - 1;
 			}
 
 			client.broadcast(racket);
@@ -110,56 +102,124 @@ require.paths.push('/usr/local/lib/node_modules');
 			
 			console.log('Player ' + client.sessionId + ' has disconnected');
 		});
-		
 	});
 	
-	update = setInterval(function () {
+	update = {
 		
-		var field, racket, ball, obj, velocity, position, newTop, newLeft;
-		
-		field = options.field;
-		racket = options.racket;
-		ball = options.ball;
-		
-		for (id in data) {
+		interval: null,
 			
-			obj = data[id];		
-			if (obj.moving === true) {
-				
-				velocity = obj.velocity;
-				position = obj.position;
-				
-				if (obj.type === 'racket') {
-								
-					newTop = position.top + velocity.y;
-					newTop = Math.max(0, newTop);
-					newTop = Math.min(newTop, (field.h - racket.h));
-					position.top = newTop;
-				
-				} else {
-					
-					newTop = position.top + velocity.y;					
-					newTop = Math.max(0, newTop);
-					newTop = Math.min(newTop, field.h - ball.h);
-					position.top = newTop;					
-					if (newTop === 0 || newTop === field.h - ball.h) {
-						velocity.y = -velocity.y;
-					}
-
-					newLeft = position.left + velocity.x;
-					newLeft = Math.max(ball.w, newLeft);
-					newLeft = Math.min(newLeft, field.w - ball.w);
-					position.left = newLeft;
-					if (newLeft === ball.w || newLeft === field.w - ball.w) {
-						velocity.x = -velocity.x;
+		init: function init() {
+			
+			var that = this;
+			
+			this.interval = setInterval(function () {
+				var id, obj;
+				for (id in data) {
+					if (data.hasOwnProperty(id)) {
+						obj = data[id];
+						if (obj.moving === true) {
+							that.reposition(obj);
+						}
 					}
 				}
-			}
-		}
-		socket.broadcast(data);
+				socket.broadcast(data);
+			}, 25);
+		},
 		
-	}, 25);
+		reposition: function reposition(obj) {
+						
+			var isBall, limitHeight, limitWidth, pos, vel, newTop, newLeft;
+			
+			isBall = (obj.type === 'ball');
+			
+			limitHeight = pField.h - pRacket.h;
+			if (isBall) {
+				limitHeight = pField.h - pBall.h;
+			}
+			
+			pos = obj.position;
+			vel = obj.velocity;
+			
+			newTop = pos.top + vel.y;
+			newTop = Math.max(0, newTop);
+			newTop = Math.min(newTop, limitHeight);
+			pos.top = newTop;
+			
+			if (isBall) {
+				
+				if (newTop === 0 || newTop === limitHeight) {
+					vel.y = -vel.y;
+				}
+				
+				limitWidth = pField.w - pRacket.w;
+				
+				if (pos.left <= pRacket.w || pos.left >= limitWidth) {
+					newLeft = pos.left + vel.x;
+					newLeft = Math.max(-pBall.w, newLeft);
+					newLeft = Math.min(newLeft, pField.w);
+				} else {
+					newLeft = pos.left + vel.x;
+					newLeft = Math.max(pRacket.w, newLeft);
+					newLeft = Math.min(newLeft, limitWidth);
+				}
+				
+				pos.left = newLeft;
+				
+				if (newLeft === pRacket.w || newLeft === limitWidth) {
+					this.hitCheck(obj, newLeft);
+				} else if (newLeft === -pBall.w || newLeft === pField.w) {
+					this.score(obj, newLeft);
+				}
+			}
+		},
+		
+		hitCheck: function hitCheck(obj, side) {
+			
+			var isLeft, offsetLeft, objSpace, objTop, id, racketLeft, racketTop;
+			
+			isLeft = (side === pRacket.w);
+			if ((isLeft && nLeft === 0) || (!isLeft && nRight === 0)) {
+				obj.velocity.x = -obj.velocity.x;
+			} else {
+				offsetLeft = pField.w - pRacket.w;
+				objTop = obj.position.top;
+				objSpace = objTop + pBall.h;
+						
+				for (id in data) {
+					if (data.hasOwnProperty(id) && data[id].type === 'racket') {
+						racketLeft = data[id].position.left;
+						if ((isLeft && racketLeft === 0) || (!isLeft && racketLeft === offsetLeft)) {
+							racketTop = data[id].position.top;
+							if (racketTop < objSpace && objTop < racketTop + pRacket.h) {
+								obj.velocity.x = -obj.velocity.x;
+								break;
+							}
+						}
+					}
+				}
+			}	
+		},
+		
+		score: function score(obj, side) {
+			
+			var isLeft, pos, vel;
+			
+			isLeft = (side === -pBall.w);
+			pos = obj.position;
+			vel = obj.velocity;
+			
+			pos.top = (pField.h - pBall.h) / 2;
+			pos.left = (pField.w - pBall.w) / 2;
+			vel.y = pBall.v * (Math.round(Math.random()) * 2 - 1);
+			vel.x = -pBall.v;
+			if (isLeft) {
+				vel.x = pBall.v;
+			}
+			
+			// TODO: add a point
+		}
+	};
 	
-	// TODO: Hit test = racket.top < ball.top + 15 && ball.top < racket.top + 65;
+	update.init();
 	
 }());

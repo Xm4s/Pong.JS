@@ -15,8 +15,8 @@ require.paths.push('/usr/local/lib/node_modules');
 	socket = io.listen(server);
 		
 	pField = { w: 1005, h: 585 };
-	pRacket = { w: 15, h: 65, v: 5 };
-	pBall = { w: 15, h: 15, v: 5 };
+	pRacket = { w: 15, h: 65, v: 4 };
+	pBall = { w: 15, h: 15, v: 4 };
 		
 	nBalls = 0;
 	nRight = 0;
@@ -124,7 +124,7 @@ require.paths.push('/usr/local/lib/node_modules');
 					}
 				}
 				socket.broadcast(data);
-			}, 25);
+			}, 20);
 		},
 		
 		reposition: function reposition(obj) {
@@ -132,8 +132,7 @@ require.paths.push('/usr/local/lib/node_modules');
 			var isBall, limitHeight, limitWidth, pos, vel, newTop, newLeft;
 			
 			isBall = (obj.type === 'ball');
-			
-			limitHeight = pField.h - pRacket.h;
+			limitHeight = pField.h - pRacket.h;			
 			if (isBall) {
 				limitHeight = pField.h - pBall.h;
 			}
@@ -152,18 +151,16 @@ require.paths.push('/usr/local/lib/node_modules');
 					vel.y = -vel.y;
 				}
 				
-				limitWidth = pField.w - pRacket.w;
+				limitWidth = pField.w - pBall.w - pRacket.w;
+				newLeft = pos.left + vel.x;
 				
 				if (pos.left <= pRacket.w || pos.left >= limitWidth) {
-					newLeft = pos.left + vel.x;
 					newLeft = Math.max(-pBall.w, newLeft);
 					newLeft = Math.min(newLeft, pField.w);
 				} else {
-					newLeft = pos.left + vel.x;
 					newLeft = Math.max(pRacket.w, newLeft);
 					newLeft = Math.min(newLeft, limitWidth);
 				}
-				
 				pos.left = newLeft;
 				
 				if (newLeft === pRacket.w || newLeft === limitWidth) {
@@ -190,10 +187,8 @@ require.paths.push('/usr/local/lib/node_modules');
 						
 				for (id in data) {
 					if (data.hasOwnProperty(id) && data[id].type === 'racket') {
-						
 						racketLeft = data[id].position.left;
 						if ((isLeft && racketLeft === 0) || (!isLeft && racketLeft === offsetLeft)) {
-							
 							racketTop = data[id].position.top;
 							if (racketTop < objSpace && objTop < racketTop + pRacket.h) {
 								obj.velocity.x = -obj.velocity.x;

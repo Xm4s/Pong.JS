@@ -1,13 +1,15 @@
 
 (function PongClient() {
 	
-	var socket, field, me, others, update;
+	"use strict";
+	
+	var socket, field, allElem, me, others, update;
 		
 	socket = {
 						
 		init: function init() {
 						
-			this['io'] = new io.Socket('spellbook.local', {'port':'55555'});
+			this.io = new io.Socket('spellbook.local', {'port': '55555'});
 			this.io.connect();
 		
 			this.io.on('connect', function () {
@@ -16,25 +18,25 @@
 		
 			this.io.on('message', function (data) {
 				
-				var elem;
-							
+				var id, obj;						
 				if (data.hasOwnProperty('id')) {
-				
-					elem = document.getElementById('ID-' + data.id);
-					if (elem === null) {
+					
+					id = 'ID-' + data.id;					
+					if (!allElem.hasOwnProperty(id)) {
 						me.init(data);
 					} else {
-						others.deInit(elem);
+						others.deInit(id);
 					}
 				
 				} else {
 					
 					for (obj in data) {
-						elem = document.getElementById('ID-' + data[obj].id);
-						if (elem === null) {
-							others.init(data[obj]);
+						if (data.hasOwnProperty(obj)) {
+							if (!allElem.hasOwnProperty('ID-' + data[obj].id)) {
+								others.init(data[obj]);
+							}
+							update(data[obj]);
 						}
-						update(data[obj]);
 					}					
 				}
 			});
@@ -43,22 +45,25 @@
 				// console.log('Disconnected from node socket');
 			});
 		}	
-	}
+	};
 	
 	field = document.getElementById('field');
+	
+	allElem = {};
 	
 	me = {
 		
 		init: function init(data) {
-								
+						
 			var id = 'ID-' + data.id;
+			
+			$('.me').remove();
 			$(field).append('<div id="' + id + '" class="racket me"></div>');
+			allElem[id] = document.getElementById(id);
 			
 			update(data);
-			
-			this['elem'] = document.getElementById(id);
-			this['isMoving'] = false;
-											
+						
+			this.isMoving = false;								
 			$(window).bind('keydown', this.onMove).bind('keyup', this.onMove);
 		},
 		
@@ -70,7 +75,7 @@
 			keycode = e.keyCode;
 			type = e.type;
 								
-			if (keycode === 38 || keycode == 40) {		
+			if (keycode === 38 || keycode === 40) {		
 				e.preventDefault();
 			
 				if (type === 'keydown' && that.isMoving === false) {
@@ -81,9 +86,10 @@
 						velocity: {
 							y: 5
 						}
-					}
+					};
+					
 					if (keycode === 38) {
-						data.velocity.y = -5
+						data.velocity.y = -5;
 					}
 					socket.io.send(data);
 				
@@ -95,7 +101,8 @@
 						velocity: {
 							y: -5
 						}
-					}
+					};
+					
 					if (keycode === 38) {
 						data.velocity.y = 5;
 					}
@@ -103,26 +110,32 @@
 				}
 			}
 		}
-	}
+	};
 		
 	others = {
 		
 		init: function init(data) {
-			$(field).append('<div id="ID-' + data.id + '" class="' + data.type + '"></div>');
+			var id = 'ID-' + data.id;
+			$(field).append('<div id="' + id + '" class="' + data.type + '"></div>');
+			allElem[id] = document.getElementById(id);
 		},
 		
-		deInit: function deInit(elem) {
-			$(elem).remove();
+		deInit: function deInit(id) {
+			$(allElem[id]).remove();
+			delete allElem[id];
 		}
-	}
+	};
 		
 	update = function update(data) {
 		
-		$(document.getElementById('ID-' + data.id)).css({
-			'top': data.position.top + 'px',
-			'left': data.position.left + 'px'
-		});
-	}
+		var id = 'ID-' + data.id;
+		if (allElem.hasOwnProperty(id)) {
+			$(allElem[id]).css({
+				'top': data.position.top + 'px',
+				'left': data.position.left + 'px'
+			});
+		}
+	};
 	
 	$(document).ready(function () { socket.init(); });
 		

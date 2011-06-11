@@ -1,0 +1,46 @@
+Pong.JS
+Basic Multiplayer Pong written in Node.JS
+Copyright (C) 2011, Marco Colombo
+
+
+
+WHAT IS PONG JS
+===============
+
+Do you remember Pong? I'm sure you do. This is a basic multiplayer version of Pong written in Node.JS.
+This is hardly a perfect version of the original game, more an experiment. I had fun coding it and I hope you'll have fun playing it.
+Also I haven't got the time to test it with more than 4/5 people, so if you do let me know how it works.
+
+
+
+REQUIREMENTS
+============
+
+Node.JS (http://nodejs.org/)
+Express (http://expressjs.com/)
+Socket.IO (http://socket.io/)
+
+A web server
+A browser with websockets support (see this for reference: http://stackoverflow.com/questions/1253683/websocket-for-html5) 
+
+
+
+HOW TO USE PONG.JS
+==================
+
+1. Put the Pong.JS folder anywhere on your web server
+2. Open conf.js and set your server ip and the port you want to use for your express server
+3. Execute server.js with node
+4. Go to your Pong.JS page
+5. Enjoy!
+
+PS: while it's possible to play alone, it's better if you manage to get others to play with you :)
+
+
+
+HOW DOES IT WORK
+================
+
+. When anyone join the game he'll be placed on the side with less players, (if the players are even, the new player will be placed on the left side)
+. Every 5 bounces the speed of the ball increase. When a side score a point the speed reset to its default value
+. You are the green racket, try not to get the ball behind you ... well, it's pong after all :)

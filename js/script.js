@@ -9,7 +9,7 @@
 						
 		init: function init() {
 						
-			this.io = new io.Socket('spellbook.local', {'port': '55555'});
+			this.io = new io.Socket(conf.server, {'port': conf.port});
 			this.io.connect();
 		
 			this.io.on('connect', function () {

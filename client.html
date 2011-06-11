@@ -9,7 +9,8 @@
 	<div id="field"></div>
 	
 	<script type="text/javascript" src="js/libs/jquery-1.6.min.js"></script>
-	<script type="text/javascript" src="http://spellbook.local:55555/socket.io/socket.io.js"></script>
+	<script type="text/javascript" src="conf.js"></script>
+	<script type="text/javascript">document.write('<script type="text/javascript" src="http://' + conf.server + ':' + conf.port + '/socket.io/socket.io.js">\x3C/script>');</script>
 	<script type="text/javascript" src="js/script.js"></script>
 </body>
 </html>

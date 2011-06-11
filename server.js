@@ -5,11 +5,12 @@ require.paths.push('/usr/local/lib/node_modules');
 	
 	"use strict";
 	
-	var express, server, io, socket, pField, pRacket, pBall, nBalls, nRight, nLeft, data, Racket, Ball, update;
+	var conf, express, server, io, socket, pField, pRacket, pBall, nBalls, nRight, nLeft, data, Racket, Ball, update;
 	
+	conf = require('./conf');	
 	express = require('express');
 	server = express.createServer();
-	server.listen(55555);
+	server.listen(conf.port);
 	
 	io = require('socket.io');
 	socket = io.listen(server);

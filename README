@@ -1,5 +1,5 @@
 Pong.JS
-Basic Multiplayer Pong written in Node.JS
+Simple Multiplayer Pong written in Node.JS
 Copyright (C) 2011, Marco Colombo
 
 
@@ -7,7 +7,7 @@ Copyright (C) 2011, Marco Colombo
 WHAT IS PONG JS
 ===============
 
-Do you remember Pong? I'm sure you do. This is a basic multiplayer version of Pong written in Node.JS.
+Do you remember Pong? I'm sure you do. This is a simple multiplayer version of Pong written in Node.JS.
 This is hardly a perfect version of the original game, more an experiment. I had fun coding it and I hope you'll have fun playing it.
 Also I haven't got the time to test it with more than 4/5 people, so if you do let me know how it works.
 

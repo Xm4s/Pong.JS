@@ -9,8 +9,7 @@
 						
 		init: function init() {
 						
-			this.io = new io.Socket(conf.server, {'port': conf.port});
-			this.io.connect();
+			this.io = io.connect(conf.server, {'port': conf.port});
 		
 			this.io.on('connect', function () {
 				// console.log('Connected to node socket');		
@@ -91,7 +90,7 @@
 					if (keycode === 38) {
 						data.velocity.y = -5;
 					}
-					socket.io.send(data);
+					socket.io.json.send(data);
 				
 				} else if (type === 'keyup' && that.isMoving === true) {
 				
@@ -106,7 +105,7 @@
 					if (keycode === 38) {
 						data.velocity.y = 5;
 					}
-					socket.io.send(data);
+					socket.io.json.send(data);
 				}
 			}
 		}

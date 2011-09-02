@@ -5,7 +5,7 @@ require.paths.push('/usr/local/lib/node_modules');
 	
 	"use strict";
 	
-	var conf, express, server, io, socket, pField, pRacket, pBall, nBalls, nRight, nLeft, data, Racket, Ball, update;
+	var conf, express, server, io, pField, pRacket, pBall, nBalls, nRight, nLeft, data, Racket, Ball, update;
 	
 	conf = require('./conf');	
 	express = require('express');
@@ -13,7 +13,7 @@ require.paths.push('/usr/local/lib/node_modules');
 	server.listen(conf.port);
 	
 	io = require('socket.io');
-	socket = io.listen(server);
+	io = io.listen(server);
 		
 	pField = { w: 1005, h: 585 };
 	pRacket = { w: 15, h: 65, v: 4 };
@@ -68,9 +68,9 @@ require.paths.push('/usr/local/lib/node_modules');
 		this.hit = 0;
 	};
 		
-	socket.on('connection', function (client) {
+	io.sockets.on('connection', function (socket) {
 		
-		console.log('Player ' + client.sessionId + ' has connected');
+		console.log('Player ' + socket.id + ' has connected');
 
 		var id, ball, racket;
 		
@@ -80,18 +80,18 @@ require.paths.push('/usr/local/lib/node_modules');
 			data[id] = ball;
 		}
 		
-		id = client.sessionId;
+		id = socket.id;
 		racket = new Racket(id); 
 
-		client.send(racket);
+		socket.json.send(racket);
 		data[id] = racket;
 		
-		client.on('message', function (msg) {
+		socket.on('message', function (msg) {
 			data[id].moving = msg.moving;
 			data[id].velocity.y = msg.velocity.y;
 		});
 
-		client.on('disconnect', function () {
+		socket.on('disconnect', function () {
 			
 			if (racket.position.left === 0) {
 				nLeft = nLeft - 1;
@@ -99,10 +99,10 @@ require.paths.push('/usr/local/lib/node_modules');
 				nRight = nRight - 1;
 			}
 
-			client.broadcast(racket);
+			socket.broadcast.json.send(racket);
 			delete data[racket.id];
 			
-			console.log('Player ' + client.sessionId + ' has disconnected');
+			console.log('Player ' + socket.id + ' has disconnected');
 		});
 	});
 	
@@ -124,7 +124,7 @@ require.paths.push('/usr/local/lib/node_modules');
 						}
 					}
 				}
-				socket.broadcast(data);
+				io.sockets.json.send(data);
 			}, 20);
 		},
 		

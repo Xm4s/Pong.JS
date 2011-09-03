@@ -13,8 +13,6 @@
 		this.img = new Image();
 		this.img.onload = function () { that.ready = true; };
 		this.img.src = url;
-		
-		return this;
 	};
 	
 	Element = function Element(data) {
@@ -23,8 +21,6 @@
 		this.type = data.type;
 		this.top = data.position.top;
 		this.left = data.position.left;
-		
-		return this;
 	};
 	
 	game = {
@@ -61,7 +57,7 @@
 			}
 		},
 		
-		draw: function render(data) {
+		draw: function draw(data) {
 			
 			var ball, elem, player;
 			
@@ -79,7 +75,7 @@
 			}
 			
 			player = all[me.id];
-			this.ctx.drawImage(this.player.img, player.left, player.top + 15);
+			this.ctx.drawImage(this.player.img, player.left, player.top + 15);			
 		}
 	};
 		

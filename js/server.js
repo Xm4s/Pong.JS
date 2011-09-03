@@ -5,195 +5,280 @@ require.paths.push('/usr/local/lib/node_modules');
 	
 	"use strict";
 	
-	var conf, express, server, io, pField, pRacket, pBall, nBalls, nRight, nLeft, data, Racket, Ball, update;
+	var settings, wBall, wRacket, wField, boundaries, playersCounter, leftPlayers, rightPlayers, data, Ball, Player, server, game;
 	
-	conf = require('./conf');	
-	express = require('express');
-	server = express.createServer();
-	server.listen(conf.port);
+	settings = {
+		field:  { w: 1005, h: 585 },
+		racket: { w: 15,   h: 65, v: 3 },
+		ball:   { w: 15,   h: 15, v: 3 },
+		fps: 	60s
+	};
 	
-	io = require('socket.io');
-	io = io.listen(server);
-		
-	pField = { w: 1005, h: 585 };
-	pRacket = { w: 15, h: 65, v: 4 };
-	pBall = { w: 15, h: 15, v: 4 };
-		
-	nBalls = 0;
-	nRight = 0;
-	nLeft = 0;
+	wBall   = settings.ball.w;
+	wRacket = settings.racket.w;
+	wField  = settings.field.w;
+	
+	boundaries = {
+		ball: { 
+			h: settings.field.h - settings.ball.h,
+			w: settings.field.w - wBall
+		},
+		racket: { 
+			h: settings.field.h - settings.racket.h,
+			w: settings.field.w - wRacket
+		}
+	};
+	
+	playersCounter = 0;	
+	leftPlayers    = 0;
+	rightPlayers   = 0;
 	
 	data = {};
 	
-	Racket = function Racket(id) {
-		
-		var offsetLeft;
-				
-		if (nRight < nLeft) {
-			offsetLeft = pField.w - pRacket.w;
-			nRight = nRight + 1;
-		} else {
-			offsetLeft = 0;
-			nLeft = nLeft + 1;
-		}
-			
-		this.id = id;
-		this.type = 'racket';
-		this.moving = false;
-		this.velocity = {
-			x: 0,
-			y: pRacket.v
-		};
-		this.position = {
-			top: (pField.h - pRacket.h) / 2,
-			left: offsetLeft
-		};
-	};
-	
 	Ball = function Ball(id) {
-				
-		nBalls = nBalls + 1;
 		
 		this.id = id;
 		this.type = 'ball';
 		this.moving = true;
 		this.velocity = {
-			x: pBall.v * (Math.round(Math.random()) * 2 - 1),
-			y: pBall.v * (Math.round(Math.random()) * 2 - 1)
+			x: settings.ball.v * (Math.round(Math.random()) * 2 - 1),
+			y: settings.ball.v * (Math.round(Math.random()) * 2 - 1)
 		};
 		this.position = {
-			top: (pField.h - pBall.h) / 2,
-			left: (pField.w - pBall.w) / 2
+			top: (boundaries.ball.h) / 2,
+			left: (boundaries.ball.w) / 2
 		};
 		this.hit = 0;
 	};
-		
-	io.sockets.on('connection', function (socket) {
-		
-		console.log('Player ' + socket.id + ' has connected');
-
-		var id, ball, racket;
-		
-		if (nBalls === 0) {
-			id = 'ball-' + nBalls;
-			ball = new Ball(id);
-			data[id] = ball;
-		}
-		
-		id = socket.id;
-		racket = new Racket(id); 
-
-		socket.json.send(racket);
-		data[id] = racket;
-		
-		socket.on('message', function (msg) {
-			data[id].moving = msg.moving;
-			data[id].velocity.y = msg.velocity.y;
-		});
-
-		socket.on('disconnect', function () {
-			
-			if (racket.position.left === 0) {
-				nLeft = nLeft - 1;
-			} else {
-				nRight = nRight - 1;
-			}
-
-			socket.broadcast.json.send(racket);
-			delete data[racket.id];
-			
-			console.log('Player ' + socket.id + ' has disconnected');
-		});
-	});
 	
-	update = {
+	Player = function Player(id, left) {
 		
-		interval: null,
-			
+		this.id = id;
+		this.type = 'player';
+		this.moving = false;
+		this.velocity = {
+			x: 0,
+			y: settings.racket.v
+		};
+		this.position = {
+			top: (boundaries.racket.h) / 2,
+			left: left
+		};
+	};
+	
+	server = {
+		
 		init: function init() {
+			
+			var that, conf, express, host;
+					
+			that = this;
+			
+			conf = require('./conf');						
+			express = require('express');
+			host = express.createServer();
+			host.listen(conf.port);
+
+			this.io = require('socket.io');
+			this.io = this.io.listen(host);
+			
+			this.io.set('log level', 1);
+			this.io.set('transports', ['websocket']);
+			
+			this.io.sockets.on('connection', function (socket) {
+
+				var id, player;
+								
+				if (playersCounter === 0) {
+					game.addBall();
+				}
+
+				id = socket.id;
+				player = game.addPlayer(id);
+				socket.json.send(player);
+				
+				socket.on('message', function (msg) {
+					player.moving = msg.moving;
+					player.velocity.y = msg.velocity.y;
+				});
+
+				socket.on('disconnect', function () {
+					
+					game.removePlayer(id);
+					socket.broadcast.json.send(player);
+					
+					playersCounter = playersCounter - 1;
+					if (playersCounter === 0) {
+						data = {};
+					}
+				});
+			});
+			
+			this.run();			
+		},
+		
+		run: function run() {
 			
 			var that = this;
 			
-			this.interval = setInterval(function () {
-				var id, obj;
-				for (id in data) {
-					if (data.hasOwnProperty(id)) {
-						obj = data[id];
-						if (obj.moving === true) {
-							that.reposition(obj);
+			this.lastFrameTime = new Date().getTime();
+			this.idealTimeFrame = 1000 / settings.fps;
+			this.leftover = 0;			
+			
+			setInterval(function () { that.tick(); }, this.idealTimeFrame);
+		},
+		
+		tick: function tick() {
+			
+			var thisFrameTime, timeSinceDoLogic, frameToProcess, i;
+			
+			thisFrameTime = new Date().getTime();
+			timeSinceDoLogic = (thisFrameTime - this.lastFrameTime) + this.leftover;
+			i = frameToProcess = Math.floor(timeSinceDoLogic / this.idealTimeFrame);
+			
+			while (i--) {
+				game.update();
+			}
+			
+			this.io.sockets.json.send(data);
+			
+			this.leftover = timeSinceDoLogic - (frameToProcess * this.idealTimeFrame);
+		    this.lastFrameTime = thisFrameTime;
+		}
+	};
+	
+	game = {
+		
+		addBall: function addBall() {
+			var id = 'ball-' + Math.random();
+			data[id] = new Ball(id);
+		},
+		
+		resetBall: function resetBall(ball, side) {
+			
+			var isLeft, pos, vel;
+			
+			isLeft = (side === -wBall);
+			pos = ball.position;
+			vel = ball.velocity;
+			
+			pos.top = (boundaries.ball.h) / 2;
+			pos.left = (boundaries.ball.w) / 2;
+			
+			vel.y = settings.ball.v * (Math.round(Math.random()) * 2 - 1);
+			vel.x = -settings.ball.v;
+			if (isLeft) {
+				vel.x = -vel.x;
+			}
+		},
+		
+		addPlayer: function addPlayer(id) {
+			
+			var offset;
+
+			if (rightPlayers < leftPlayers) {
+				offset = boundaries.racket.w;
+				rightPlayers = rightPlayers + 1;
+			} else {
+				offset = 0;
+				leftPlayers = leftPlayers + 1;
+			}
+			
+			playersCounter = playersCounter + 1;
+			data[id] = new Player(id, offset);
+			return data[id];
+		},
+		
+		removePlayer: function removePlayer(id) {
+			
+			var player = data[id];
+						
+			if (player.position.left === 0) {
+				leftPlayers  = leftPlayers - 1;
+			} else {
+				rightPlayers = rightPlayers - 1;
+			}
+
+			delete data[id];
+		},
+		
+		update: function update() {
+			
+			var id, obj, pos, vel, isBall, hLimit, wLimit, newTop, newLeft;
+						
+			for (id in data) {
+				if (data.hasOwnProperty(id)) {
+					obj = data[id];
+					if (obj.moving === true) {
+						
+						pos = obj.position;
+						vel = obj.velocity;
+
+						isBall = (obj.type === 'ball');
+						hLimit = boundaries.racket.h;			
+						if (isBall) {
+							hLimit = boundaries.ball.h;
+						}
+
+						newTop = pos.top + vel.y;
+						newTop = Math.max(0, newTop);
+						newTop = Math.min(newTop, hLimit);
+						pos.top = newTop;
+
+						if (isBall) {
+							if (newTop === 0 || newTop === hLimit) {
+								vel.y = -vel.y;
+							}
+
+							wLimit = boundaries.racket.w - wBall;
+							newLeft = pos.left + vel.x;
+
+							if (pos.left <= wRacket || pos.left >= wLimit) {
+								newLeft = Math.max(-wBall, newLeft);
+								newLeft = Math.min(newLeft, wField);
+							} else {
+								newLeft = Math.max(wRacket, newLeft);
+								newLeft = Math.min(newLeft, wLimit);
+							}
+							pos.left = newLeft;
+
+							if (newLeft === wRacket || newLeft === wLimit) {								
+								this.collision(obj, newLeft);
+							} else if (newLeft === -wBall || newLeft === wField) {
+								this.resetBall(obj, newLeft);
+								this.score(newLeft);
+							}
 						}
 					}
 				}
-				io.sockets.json.send(data);
-			}, 20);
-		},
-		
-		reposition: function reposition(obj) {
-						
-			var isBall, limitHeight, limitWidth, pos, vel, newTop, newLeft;
-			
-			isBall = (obj.type === 'ball');
-			limitHeight = pField.h - pRacket.h;			
-			if (isBall) {
-				limitHeight = pField.h - pBall.h;
-			}
-			
-			pos = obj.position;
-			vel = obj.velocity;
-			
-			newTop = pos.top + vel.y;
-			newTop = Math.max(0, newTop);
-			newTop = Math.min(newTop, limitHeight);
-			pos.top = newTop;
-			
-			if (isBall) {
-				
-				if (newTop === 0 || newTop === limitHeight) {
-					vel.y = -vel.y;
-				}
-				
-				limitWidth = pField.w - pBall.w - pRacket.w;
-				newLeft = pos.left + vel.x;
-				
-				if (pos.left <= pRacket.w || pos.left >= limitWidth) {
-					newLeft = Math.max(-pBall.w, newLeft);
-					newLeft = Math.min(newLeft, pField.w);
-				} else {
-					newLeft = Math.max(pRacket.w, newLeft);
-					newLeft = Math.min(newLeft, limitWidth);
-				}
-				pos.left = newLeft;
-				
-				if (newLeft === pRacket.w || newLeft === limitWidth) {
-					this.hitCheck(obj, newLeft);
-				} else if (newLeft === -pBall.w || newLeft === pField.w) {
-					this.score(obj, newLeft);
-				}
 			}
 		},
 		
-		hitCheck: function hitCheck(obj, side) {
+		collision: function collision(obj, side) {
 			
-			var isLeft, offsetLeft, objTop, objSpace, id, racketLeft, racketTop;
-						
-			isLeft = (side === pRacket.w);
-			if ((isLeft && nLeft === 0) || (!isLeft && nRight === 0)) {
+			var isLeft, offsetLeft, objTop, objSpace, id, racket, racketLeft, racketTop;
+									
+			isLeft = (side === wRacket);
+			if ((isLeft && leftPlayers === 0) || (!isLeft && rightPlayers === 0)) {
+				
 				obj.velocity.x = -obj.velocity.x;
-				this.velocityCheck(obj);
+				this.velocity(obj);
+			
 			} else {
-				
-				offsetLeft = pField.w - pRacket.w;
+								
+				offsetLeft = boundaries.racket.w;
 				objTop = obj.position.top;
-				objSpace = objTop + pBall.h;
+				objSpace = objTop + settings.ball.h;
 						
 				for (id in data) {
-					if (data.hasOwnProperty(id) && data[id].type === 'racket') {
-						racketLeft = data[id].position.left;
-						if ((isLeft && racketLeft === 0) || (!isLeft && racketLeft === offsetLeft)) {
-							racketTop = data[id].position.top;
-							if (racketTop < objSpace && objTop < racketTop + pRacket.h) {
+					if (data.hasOwnProperty(id) && data[id].type === 'player') {
+						racket = data[id];
+						racketLeft = racket.position.left;		
+						if ((isLeft && racketLeft === 0) || (!isLeft && racketLeft === offsetLeft)) {		
+							racketTop = racket.position.top;
+							if (racketTop < objSpace && objTop < racketTop + settings.racket.h) {
 								obj.velocity.x = -obj.velocity.x;
-								this.velocityCheck(obj);
+								this.velocity(obj);
 								break;
 							}
 						}
@@ -202,7 +287,7 @@ require.paths.push('/usr/local/lib/node_modules');
 			}	
 		},
 		
-		velocityCheck: function velocityCheck(obj) {
+		velocity: function velocity(obj) {
 			
 			var value, vel;			
 			
@@ -223,27 +308,11 @@ require.paths.push('/usr/local/lib/node_modules');
 			}
 		},
 		
-		score: function score(obj, side) {
-			
-			var isLeft, pos, vel;
-			
-			isLeft = (side === -pBall.w);
-			pos = obj.position;
-			vel = obj.velocity;
-			
-			pos.top = (pField.h - pBall.h) / 2;
-			pos.left = (pField.w - pBall.w) / 2;
-			
-			vel.y = pBall.v * (Math.round(Math.random()) * 2 - 1);
-			vel.x = -pBall.v;
-			if (isLeft) {
-				vel.x = pBall.v;
-			}
-			
-			// TODO: add a point
+		score: function score(side) {
+			// TODO: add a point!
 		}
 	};
-	
-	update.init();
+			
+	server.init();
 	
 }());

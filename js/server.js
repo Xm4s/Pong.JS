@@ -11,7 +11,7 @@ require.paths.push('/usr/local/lib/node_modules');
 		field:  { w: 1005, h: 585 },
 		racket: { w: 15,   h: 65, v: 3 },
 		ball:   { w: 15,   h: 15, v: 3 },
-		fps: 	60s
+		fps: 	60
 	};
 	
 	wBall   = settings.ball.w;

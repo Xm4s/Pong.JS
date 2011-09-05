@@ -5,41 +5,35 @@ require.paths.push('/usr/local/lib/node_modules');
 	
 	"use strict";
 	
-	var settings, wBall, wRacket, wField, boundaries, playersCounter, leftPlayers, rightPlayers, data, Ball, Player, server, game;
+	var settings, boundaries, data, wBall, wRacket, wField, playersCounter, leftPlayers, rightPlayers, Ball, Player, server, game;
 	
-	settings = {
-		field:  { w: 1005, h: 585 },
-		racket: { w: 15,   h: 65, v: 3 },
-		ball:   { w: 15,   h: 15, v: 3 },
-		fps: 	60
-	};
+	settings   = {};
+	boundaries = {};
+	data       = {};
+	
+	settings.cycle 	= 500;
+	settings.field  = { w: 1005, h: 585 };
+	settings.racket = { w: 15,   h: 65, v: 250 / settings.cycle };
+	settings.ball   = { w: 15,   h: 15, v: 250 / settings.cycle };
 	
 	wBall   = settings.ball.w;
 	wRacket = settings.racket.w;
 	wField  = settings.field.w;
 	
-	boundaries = {
-		ball: { 
-			h: settings.field.h - settings.ball.h,
-			w: settings.field.w - wBall
-		},
-		racket: { 
-			h: settings.field.h - settings.racket.h,
-			w: settings.field.w - wRacket
-		}
-	};
+	boundaries.ball   = { h: settings.field.h - settings.ball.h,   w: settings.field.w - wBall   };
+	boundaries.racket = { h: settings.field.h - settings.racket.h, w: settings.field.w - wRacket };
 	
 	playersCounter = 0;	
 	leftPlayers    = 0;
 	rightPlayers   = 0;
 	
-	data = {};
-	
 	Ball = function Ball(id) {
 		
-		this.id = id;
-		this.type = 'ball';
+		this.id     = id;
+		this.type   = 'ball';
 		this.moving = true;
+		this.hit    = 0;
+		
 		this.velocity = {
 			x: settings.ball.v * (Math.round(Math.random()) * 2 - 1),
 			y: settings.ball.v * (Math.round(Math.random()) * 2 - 1)
@@ -48,14 +42,14 @@ require.paths.push('/usr/local/lib/node_modules');
 			top: (boundaries.ball.h) / 2,
 			left: (boundaries.ball.w) / 2
 		};
-		this.hit = 0;
 	};
 	
 	Player = function Player(id, left) {
 		
-		this.id = id;
-		this.type = 'player';
+		this.id     = id;
+		this.type   = 'player';
 		this.moving = false;
+		
 		this.velocity = {
 			x: 0,
 			y: settings.racket.v
@@ -85,6 +79,8 @@ require.paths.push('/usr/local/lib/node_modules');
 			this.io.set('log level', 1);
 			this.io.set('transports', ['websocket']);
 			
+			game.run();
+			
 			this.io.sockets.on('connection', function (socket) {
 
 				var id, player;
@@ -99,7 +95,7 @@ require.paths.push('/usr/local/lib/node_modules');
 				
 				socket.on('message', function (msg) {
 					player.moving = msg.moving;
-					player.velocity.y = msg.velocity.y;
+					player.velocity.y = Math.abs(player.velocity.y) * msg.velocity.y;
 				});
 
 				socket.on('disconnect', function () {
@@ -112,42 +108,22 @@ require.paths.push('/usr/local/lib/node_modules');
 						data = {};
 					}
 				});
-			});
-			
-			this.run();			
-		},
+			});			
+		}
+	};
+	
+	game = {
 		
 		run: function run() {
 			
 			var that = this;
 			
 			this.lastFrameTime = new Date().getTime();
-			this.idealTimeFrame = 1000 / settings.fps;
+			this.idealTimeFrame = 1000 / settings.cycle;
 			this.leftover = 0;			
 			
 			setInterval(function () { that.tick(); }, this.idealTimeFrame);
 		},
-		
-		tick: function tick() {
-			
-			var thisFrameTime, timeSinceDoLogic, frameToProcess, i;
-			
-			thisFrameTime = new Date().getTime();
-			timeSinceDoLogic = (thisFrameTime - this.lastFrameTime) + this.leftover;
-			i = frameToProcess = Math.floor(timeSinceDoLogic / this.idealTimeFrame);
-			
-			while (i--) {
-				game.update();
-			}
-			
-			this.io.sockets.json.send(data);
-			
-			this.leftover = timeSinceDoLogic - (frameToProcess * this.idealTimeFrame);
-		    this.lastFrameTime = thisFrameTime;
-		}
-	};
-	
-	game = {
 		
 		addBall: function addBall() {
 			var id = 'ball-' + Math.random();
@@ -200,6 +176,25 @@ require.paths.push('/usr/local/lib/node_modules');
 			}
 
 			delete data[id];
+		},
+		
+		tick: function tick() {
+			
+			var thisFrameTime, timeSinceDoLogic, frameToProcess, i;
+
+			thisFrameTime = new Date().getTime();
+			timeSinceDoLogic = (thisFrameTime - this.lastFrameTime) + this.leftover;
+			i = frameToProcess = Math.floor(timeSinceDoLogic / this.idealTimeFrame);
+
+			if (i > 0) {
+				while (i--) {
+					this.update();
+				}
+				server.io.sockets.json.send(data);
+			}
+
+			this.leftover = timeSinceDoLogic - (frameToProcess * this.idealTimeFrame);
+		    this.lastFrameTime = thisFrameTime;
 		},
 		
 		update: function update() {
@@ -296,9 +291,9 @@ require.paths.push('/usr/local/lib/node_modules');
 				for (value in vel) {
 					if (vel.hasOwnProperty(value)) {
 						if (vel[value] < 0) {
-							vel[value] = vel[value] - 1;
+							vel[value] = vel[value] - (50 / settings.cycle);
 						} else {
-							vel[value] = vel[value] + 1;
+							vel[value] = vel[value] + (50 / settings.cycle);
 						}						
 					}
 				}

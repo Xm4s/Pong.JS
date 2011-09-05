@@ -3,79 +3,95 @@
 	
 	"use strict";
 	
-	var Asset, Element, game, socket, all, me;
+	var data, Asset, Element, game, socket, me;
+	
+	data = {};
 	
 	Asset = function Asset(url) {
 		
 		var that = this;
 		
 		this.ready = false;
-		this.img = new Image();
-		this.img.onload = function () { that.ready = true; };
-		this.img.src = url;
+		this.asset = new Image();
+		this.asset.onload = function () { that.ready = true; };
+		this.asset.src = url;
 	};
 	
 	Element = function Element(data) {
 		
-		this.id = data.id;
+		this.id   = data.id;
 		this.type = data.type;
-		this.top = data.position.top;
+		this.top  = data.position.top + 15;
 		this.left = data.position.left;
 	};
 	
 	game = {
 				
 		init: function init() {
+						
+			var that, canvas, interval;
 			
-			var canvas, interval;
+			that = this;
 			
-			canvas = document.getElementById("canvas");
+			canvas   = document.getElementById("canvas");
 			this.ctx = canvas.getContext("2d");
 			
-			this.field = new Asset("gfx/bg.jpg");
-			this.ball = new Asset("gfx/ball.jpg");
+			this.field  = new Asset("gfx/bg.jpg");
+			this.ball   = new Asset("gfx/ball.jpg");
 			this.player = new Asset("gfx/player.jpg");
 			this.racket = new Asset("gfx/racket.jpg");
 			
 			interval = setInterval(function () {		
 				if (game.field.ready && game.ball.ready && game.player.ready && game.racket.ready) {
 					clearInterval(interval);
-					socket.init();					
+					that.run();
 				}
-			}, 100);
+			}, 13);
 		},
 		
-		update: function update(data) {
-
-			var id, elem;
-
-			id = data.id;
-			if (all.hasOwnProperty(id)) {
-				elem = all[id];
-				elem.top = data.position.top;
-				elem.left = data.position.left;
-			}
+		run: function run() {
+						
+			var draw, requestAnimationFrame;
+			
+			draw = function () { if (game.draw()) setTimeout(draw, 1000 / 60); };
+			requestAnimationFrame = window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame;
+		    
+			if (requestAnimationFrame) {
+				draw = function () { if (game.draw()) requestAnimationFrame(draw); };
+		    }
+		
+			socket.init();
+		    draw();			
 		},
 		
-		draw: function draw(data) {
+		draw: function draw() {
 			
-			var ball, elem, player;
+			var id, elem, ball, player;
 			
-			this.ctx.drawImage(this.field.img, 0, 0);	
+			this.ctx.drawImage(this.field.asset, 0, 0);	
 			
-			for (elem in all) {
-				if (all.hasOwnProperty(elem)) {
-					elem = all[elem];
+			for (id in data) {
+				if (data.hasOwnProperty(id)) {
+					elem = data[id];
 					if (elem.type === 'ball') {
-						this.ctx.drawImage(this.ball.img, elem.left, elem.top + 15);
-					} else if (elem.id !== me.id) {
-						this.ctx.drawImage(this.racket.img, elem.left, elem.top + 15);
+						ball = elem;
+					} else if (elem.id === me.id) {
+						player = elem;
+					} else {
+						this.ctx.drawImage(this.racket.asset, elem.left, elem.top);
 					}
 				}
 			}
 			
-			player = all[me.id];
-			this.ctx.drawImage(this.player.img, player.left, player.top + 15);			
+			if (player !== undefined) {
+				this.ctx.drawImage(this.player.asset, player.left, player.top);
+			}
+			
+			if (ball !== undefined) {
+				this.ctx.drawImage(this.ball.asset, ball.left, ball.top);
+			}
+			
+			return true;	
 		}
 	};
 		
@@ -83,50 +99,49 @@
 						
 		init: function init() {
 						
-			this.io = io.connect(conf.server, {'port': conf.port});
-			this.io.on('message', function (data) {
+			this.io = io.connect(conf.server, {'port': conf.port});			
+			this.io.on('message', function (msg) {
 				
 				var id, obj, elem;						
-				if (data.hasOwnProperty('id')) {
+				if (msg.hasOwnProperty('id')) {
 					
-					id = data.id;					
-					if (!all.hasOwnProperty(id)) {
-						me.init(data);
+					id = msg.id;					
+					if (!data.hasOwnProperty(id)) {
+						me.init(msg);
 					} else {
-						delete all[id];
+						delete data[id];
 					}
 				
 				} else {
 					
-					for (obj in data) {
-						if (data.hasOwnProperty(obj)) {
-							elem = data[obj];
-							if (!all.hasOwnProperty(elem.id)) {
-								all[elem.id] = new Element(elem);
+					for (id in msg) {
+						if (msg.hasOwnProperty(id)) {
+							obj = msg[id];
+							if (!data.hasOwnProperty(obj.id)) {
+								data[obj.id] = new Element(obj);
+							} else {
+								elem      = data[obj.id];
+								elem.top  = obj.position.top + 15;
+								elem.left = obj.position.left;
 							}
-							game.update(elem);
 						}
 					}					
-				}
-				
-				game.draw();
-			});
+				}								
+			});			
 		}	
 	};
-	
-	all = {};
-			
+				
 	me = {
 		
-		init: function init(data) {
+		init: function init(obj) {
 			
-			this.id = data.id;		
+			this.id = obj.id;		
 			this.isMoving = false;
 			
-			all[data.id] = new Element(data);
+			data[obj.id] = new Element(obj);
 			
 			window.addEventListener('keydown', this.onMove, true);
-			window.addEventListener('keyup', this.onMove, true);
+			window.addEventListener('keyup',   this.onMove, true);
 		},
 		
 		onMove: function onMove(e) {
@@ -146,12 +161,12 @@
 					data = {
 						moving: that.isMoving,
 						velocity: {
-							y: 5
+							y: 1
 						}
 					};
 					
 					if (keycode === 38) {
-						data.velocity.y = -5;
+						data.velocity.y = -1;
 					}
 					socket.io.json.send(data);
 				
@@ -161,12 +176,12 @@
 					data = {
 						moving: that.isMoving,
 						velocity: {
-							y: -5
+							y: -1
 						}
 					};
 					
 					if (keycode === 38) {
-						data.velocity.y = 5;
+						data.velocity.y = 1;
 					}
 					socket.io.json.send(data);
 				}

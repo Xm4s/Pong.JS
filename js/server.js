@@ -5,11 +5,12 @@ require.paths.push('/usr/local/lib/node_modules');
 	
 	"use strict";
 	
-	var settings, boundaries, data, wBall, wRacket, wField, playersCounter, leftPlayers, rightPlayers, Ball, Player, server, game;
+	var settings, boundaries, data, packet, wBall, wRacket, wField, playersCounter, leftPlayers, rightPlayers, Ball, Player, server, game;
 	
 	settings   = {};
 	boundaries = {};
 	data       = {};
+	packet	   = {};
 	
 	settings.cycle 	= 500;
 	settings.field  = { w: 1005, h: 585 };
@@ -39,7 +40,7 @@ require.paths.push('/usr/local/lib/node_modules');
 			y: settings.ball.v * (Math.round(Math.random()) * 2 - 1)
 		};
 		this.position = {
-			top: (boundaries.ball.h) / 2,
+			top : (boundaries.ball.h) / 2,
 			left: (boundaries.ball.w) / 2
 		};
 	};
@@ -55,11 +56,11 @@ require.paths.push('/usr/local/lib/node_modules');
 			y: settings.racket.v
 		};
 		this.position = {
-			top: (boundaries.racket.h) / 2,
+			top : (boundaries.racket.h) / 2,
 			left: left
 		};
 	};
-	
+
 	server = {
 		
 		init: function init() {
@@ -90,8 +91,8 @@ require.paths.push('/usr/local/lib/node_modules');
 				}
 
 				id = socket.id;
-				player = game.addPlayer(id);
-				socket.json.send(player);
+				player = game.addPlayer(id);				
+				socket.json.send(packet[id]);
 				
 				socket.on('message', function (msg) {
 					player.moving = msg.moving;
@@ -105,7 +106,8 @@ require.paths.push('/usr/local/lib/node_modules');
 					
 					playersCounter = playersCounter - 1;
 					if (playersCounter === 0) {
-						data = {};
+						data   = {};
+						packet = {};
 					}
 				});
 			});			
@@ -114,20 +116,11 @@ require.paths.push('/usr/local/lib/node_modules');
 	
 	game = {
 		
-		run: function run() {
-			
-			var that = this;
-			
-			this.lastFrameTime = new Date().getTime();
-			this.idealTimeFrame = 1000 / settings.cycle;
-			this.leftover = 0;			
-			
-			setInterval(function () { that.tick(); }, this.idealTimeFrame);
-		},
-		
 		addBall: function addBall() {
 			var id = 'ball-' + Math.random();
 			data[id] = new Ball(id);
+			
+			this.preparePacket(data[id]);
 		},
 		
 		resetBall: function resetBall(ball, side) {
@@ -138,7 +131,7 @@ require.paths.push('/usr/local/lib/node_modules');
 			pos = ball.position;
 			vel = ball.velocity;
 			
-			pos.top = (boundaries.ball.h) / 2;
+			pos.top  = (boundaries.ball.h) / 2;
 			pos.left = (boundaries.ball.w) / 2;
 			
 			vel.y = settings.ball.v * (Math.round(Math.random()) * 2 - 1);
@@ -146,6 +139,8 @@ require.paths.push('/usr/local/lib/node_modules');
 			if (isLeft) {
 				vel.x = -vel.x;
 			}
+			
+			this.preparePacket(ball);
 		},
 		
 		addPlayer: function addPlayer(id) {
@@ -162,6 +157,9 @@ require.paths.push('/usr/local/lib/node_modules');
 			
 			playersCounter = playersCounter + 1;
 			data[id] = new Player(id, offset);
+			
+			this.preparePacket(data[id]);
+			
 			return data[id];
 		},
 		
@@ -176,25 +174,48 @@ require.paths.push('/usr/local/lib/node_modules');
 			}
 
 			delete data[id];
+			delete packet[id];
+		},
+		
+		preparePacket: function preparePacket(data) {
+			
+			var chunk = {
+				id  : data.id,
+				top : data.position.top,
+				left: data.position.left
+			};
+			
+			packet[data.id] = chunk;
+		},
+		
+		run: function run() {
+			
+			var that = this;
+			
+			this.lastUpdateTime = new Date().getTime();
+			this.idealCycleTime = 1000 / settings.cycle;
+			this.leftover = 0;			
+			
+			setInterval(function () { that.tick(); }, this.idealCycleTime);
 		},
 		
 		tick: function tick() {
 			
-			var thisFrameTime, timeSinceDoLogic, frameToProcess, i;
+			var thisUpdateTime, timeSinceDoLogic, updatesToProcess, i;
 
-			thisFrameTime = new Date().getTime();
-			timeSinceDoLogic = (thisFrameTime - this.lastFrameTime) + this.leftover;
-			i = frameToProcess = Math.floor(timeSinceDoLogic / this.idealTimeFrame);
-
+			thisUpdateTime = new Date().getTime();
+			timeSinceDoLogic = (thisUpdateTime - this.lastUpdateTime) + this.leftover;
+			i = updatesToProcess = Math.floor(timeSinceDoLogic / this.idealCycleTime);
+			
 			if (i > 0) {
 				while (i--) {
 					this.update();
 				}
-				server.io.sockets.json.send(data);
+				server.io.sockets.json.send(packet);
 			}
 
-			this.leftover = timeSinceDoLogic - (frameToProcess * this.idealTimeFrame);
-		    this.lastFrameTime = thisFrameTime;
+			this.leftover = timeSinceDoLogic - (updatesToProcess * this.idealCycleTime);
+		    this.lastUpdateTime = thisUpdateTime;
 		},
 		
 		update: function update() {
@@ -204,6 +225,7 @@ require.paths.push('/usr/local/lib/node_modules');
 			for (id in data) {
 				if (data.hasOwnProperty(id)) {
 					obj = data[id];
+					
 					if (obj.moving === true) {
 						
 						pos = obj.position;
@@ -218,6 +240,7 @@ require.paths.push('/usr/local/lib/node_modules');
 						newTop = pos.top + vel.y;
 						newTop = Math.max(0, newTop);
 						newTop = Math.min(newTop, hLimit);
+						
 						pos.top = newTop;
 
 						if (isBall) {
@@ -245,6 +268,8 @@ require.paths.push('/usr/local/lib/node_modules');
 							}
 						}
 					}
+					
+					this.preparePacket(obj);
 				}
 			}
 		},

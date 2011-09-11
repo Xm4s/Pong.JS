@@ -5,14 +5,15 @@ require.paths.push('/usr/local/lib/node_modules');
 	
 	"use strict";
 	
-	var settings, boundaries, data, packet, wBall, wRacket, wField, playersCounter, leftPlayers, rightPlayers, Ball, Player, server, game;
+	var data, packet, settings, boundaries, wBall, wRacket, wField, players, left, right, Ball, Player, socket, engine;
 	
-	settings   = {};
-	boundaries = {};
 	data       = {};
 	packet	   = {};
 	
-	settings.cycle 	= 500;
+	settings   = {};
+	boundaries = {};
+	
+	settings.cycle 	= 1000;
 	settings.field  = { w: 1005, h: 585 };
 	settings.racket = { w: 15,   h: 65, v: 250 / settings.cycle };
 	settings.ball   = { w: 15,   h: 15, v: 250 / settings.cycle };
@@ -23,171 +24,200 @@ require.paths.push('/usr/local/lib/node_modules');
 	
 	boundaries.ball   = { h: settings.field.h - settings.ball.h,   w: settings.field.w - wBall   };
 	boundaries.racket = { h: settings.field.h - settings.racket.h, w: settings.field.w - wRacket };
-	
-	playersCounter = 0;	
-	leftPlayers    = 0;
-	rightPlayers   = 0;
+		
+	players = 0;	
+	left    = 0;
+	right   = 0;
 	
 	Ball = function Ball(id) {
+		
+		var bb, sb;
 		
 		this.id     = id;
 		this.type   = 'ball';
 		this.moving = true;
 		this.hit    = 0;
 		
-		this.velocity = {
-			x: settings.ball.v * (Math.round(Math.random()) * 2 - 1),
-			y: settings.ball.v * (Math.round(Math.random()) * 2 - 1)
-		};
+		bb = boundaries.ball;
+		sb = settings.ball;
+		
 		this.position = {
-			top : (boundaries.ball.h) / 2,
-			left: (boundaries.ball.w) / 2
+			top : (bb.h) / 2,
+			left: (bb.w) / 2
+		};
+		this.velocity = {
+			x: sb.v * (Math.round(Math.random()) * 2 - 1),
+			y: sb.v * (Math.round(Math.random()) * 2 - 1)
 		};
 	};
 	
-	Player = function Player(id, left) {
+	Player = function Player(id, side) {
 		
 		this.id     = id;
 		this.type   = 'player';
 		this.moving = false;
 		
+		this.position = {
+			top : (boundaries.racket.h) / 2,
+			left: side
+		};
 		this.velocity = {
 			x: 0,
 			y: settings.racket.v
 		};
-		this.position = {
-			top : (boundaries.racket.h) / 2,
-			left: left
-		};
 	};
 
-	server = {
+	socket = {
 		
 		init: function init() {
 			
-			var that, conf, express, host;
-					
-			that = this;
-			
-			conf = require('./conf');						
-			express = require('express');
-			host = express.createServer();
-			host.listen(conf.port);
-
-			this.io = require('socket.io');
-			this.io = this.io.listen(host);
-			
-			this.io.set('log level', 1);
-			this.io.set('transports', ['websocket']);
-			
-			game.run();
-			
-			this.io.sockets.on('connection', function (socket) {
-
-				var id, player;
+			var conf, express, server;
 								
-				if (playersCounter === 0) {
-					game.addBall();
-				}
-
-				id = socket.id;
-				player = game.addPlayer(id);				
-				socket.json.send(packet[id]);
+			conf    = require('./conf');						
+			express = require('express');
+			server  = express.createServer();
+			
+			server.listen(conf.port);
+			
+			this.nowjs    = require('now');			
+			this.everyone = this.nowjs.initialize(server);
+			
+			this.everyone.now.moving = engine.player.move;
+			this.everyone.now.sync   = socket.sync;
+		
+			this.nowjs.on('connect', function () {
 				
-				socket.on('message', function (msg) {
-					player.moving = msg.moving;
-					player.velocity.y = Math.abs(player.velocity.y) * msg.velocity.y;
-				});
-
-				socket.on('disconnect', function () {
-					
-					game.removePlayer(id);
-					socket.broadcast.json.send(player);
-					
-					playersCounter = playersCounter - 1;
-					if (playersCounter === 0) {
-						data   = {};
-						packet = {};
-					}
-				});
-			});			
-		}
-	};
-	
-	game = {
-		
-		addBall: function addBall() {
-			var id = 'ball-' + Math.random();
-			data[id] = new Ball(id);
-			
-			this.preparePacket(data[id]);
-		},
-		
-		resetBall: function resetBall(ball, side) {
-			
-			var isLeft, pos, vel;
-			
-			isLeft = (side === -wBall);
-			pos = ball.position;
-			vel = ball.velocity;
-			
-			pos.top  = (boundaries.ball.h) / 2;
-			pos.left = (boundaries.ball.w) / 2;
-			
-			vel.y = settings.ball.v * (Math.round(Math.random()) * 2 - 1);
-			vel.x = -settings.ball.v;
-			if (isLeft) {
-				vel.x = -vel.x;
-			}
-			
-			this.preparePacket(ball);
-		},
-		
-		addPlayer: function addPlayer(id) {
-			
-			var offset;
-
-			if (rightPlayers < leftPlayers) {
-				offset = boundaries.racket.w;
-				rightPlayers = rightPlayers + 1;
-			} else {
-				offset = 0;
-				leftPlayers = leftPlayers + 1;
-			}
-			
-			playersCounter = playersCounter + 1;
-			data[id] = new Player(id, offset);
-			
-			this.preparePacket(data[id]);
-			
-			return data[id];
-		},
-		
-		removePlayer: function removePlayer(id) {
-			
-			var player = data[id];
+				var id = this.user.clientId;
+				console.log('connected: ' + id);
+				
+				if (players === 0) {
+					engine.ball.add();
+				}
+				
+				engine.player.add(id);
+				this.now.clientInit(id);
+			});
 						
-			if (player.position.left === 0) {
-				leftPlayers  = leftPlayers - 1;
-			} else {
-				rightPlayers = rightPlayers - 1;
-			}
-
-			delete data[id];
-			delete packet[id];
-		},
-		
-		preparePacket: function preparePacket(data) {
+			this.nowjs.on('disconnect', function () {
+				
+				console.log('disconnected: ' + this.user.clientId);
+				engine.player.remove(this.user.clientId);
+				
+				if (players === 0) {
+					packet = {};
+					data   = {};
+				}
+			});
 			
+			engine.run();
+		},
+					
+		compress: function compress(data) {
+				
 			var chunk = {
 				id  : data.id,
-				top : data.position.top,
+				top : data.position.top + 15,
 				left: data.position.left
 			};
-			
+
 			packet[data.id] = chunk;
 		},
 		
+		sync: function sync() {
+			this.now.draw(packet);
+		}
+	},
+
+	engine = {
+		
+		ball: {
+			
+			add: function add() {
+				
+				var id   = 'BALL';
+				data[id] = new Ball(id);
+
+				socket.compress(data[id]);
+			},
+			
+			reset: function reset(ball, side) {
+				
+				var pos, vel, bb, sb;
+
+				pos = ball.position;
+				vel = ball.velocity;
+
+				bb = boundaries.ball;
+				sb = settings.ball;
+
+				pos.top  = (bb.h) / 2;
+				pos.left = (bb.w) / 2;
+
+				vel.y = sb.v * (Math.round(Math.random()) * 2 - 1);
+				vel.x = -sb.v;
+				if (side === -wBall) {
+					vel.x = -vel.x;
+				}
+
+				socket.compress(ball);
+			}
+		},
+		
+		player: {
+			
+			add: function add(id) {
+				
+				var side;
+
+				if (right < left) {
+					side  = wRacket;
+					right = right + 1;
+				} else {
+					left  = left  + 1;
+					side  = 0;
+				}
+
+				players  = players + 1;
+				data[id] = new Player(id, side);
+
+				socket.compress(data[id]);
+			},
+			
+			move: function move(type, code) {
+				
+				var player, velocity;
+
+				player = data[this.user.clientId];
+				velocity = 1;
+
+				if (type === 'keydown' && player.moving === false) {
+
+					player.moving = true;
+					if (code === 38) velocity = -1;
+					player.velocity.y = Math.abs(player.velocity.y) * velocity;
+
+				} else if (type === 'keyup' && player.moving === true) {
+
+					player.moving = false;
+					if (code === 40) velocity = -1;
+					player.velocity.y = Math.abs(player.velocity.y) * velocity;
+				}				
+			},
+			
+			remove: function remove(id) {
+				
+				if (data[id].position.left === 0) {
+					left  = left  - 1;
+				} else {
+					right = right - 1;
+				}
+
+				players = players - 1;
+				delete packet[id];
+				delete data[id];				
+			}
+		},
+				
 		run: function run() {
 			
 			var that = this;
@@ -211,7 +241,6 @@ require.paths.push('/usr/local/lib/node_modules');
 				while (i--) {
 					this.update();
 				}
-				server.io.sockets.json.send(packet);
 			}
 
 			this.leftover = timeSinceDoLogic - (updatesToProcess * this.idealCycleTime);
@@ -263,13 +292,13 @@ require.paths.push('/usr/local/lib/node_modules');
 							if (newLeft === wRacket || newLeft === wLimit) {								
 								this.collision(obj, newLeft);
 							} else if (newLeft === -wBall || newLeft === wField) {
-								this.resetBall(obj, newLeft);
+								this.ball.reset(obj, newLeft);
 								this.score(newLeft);
 							}
 						}
 					}
 					
-					this.preparePacket(obj);
+					socket.compress(obj);
 				}
 			}
 		},
@@ -279,7 +308,7 @@ require.paths.push('/usr/local/lib/node_modules');
 			var isLeft, offsetLeft, objTop, objSpace, id, racket, racketLeft, racketTop;
 									
 			isLeft = (side === wRacket);
-			if ((isLeft && leftPlayers === 0) || (!isLeft && rightPlayers === 0)) {
+			if ((isLeft && left === 0) || (!isLeft && right === 0)) {
 				
 				obj.velocity.x = -obj.velocity.x;
 				this.velocity(obj);
@@ -333,6 +362,6 @@ require.paths.push('/usr/local/lib/node_modules');
 		}
 	};
 			
-	server.init();
+	socket.init();
 	
 }());

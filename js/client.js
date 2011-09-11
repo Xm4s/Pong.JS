@@ -3,50 +3,67 @@
 	
 	"use strict";
 	
-	var data, Asset, Element, game, socket, me;
+	var ball, player, left, right, assets, Asset, Element, game, socket, me;
 	
-	data = {};
+	left   = {};
+	right  = {};
+	assets = {};
 	
 	Asset = function Asset(url) {
 		
 		var that = this;
 		
 		this.ready = false;
-		this.asset = new Image();
-		this.asset.onload = function () { that.ready = true; };
-		this.asset.src = url;
+		this.image = new Image();
+		this.image.onload = function () { that.ready = true; };
+		this.image.src = url;		
 	};
 	
 	Element = function Element(data) {
 		
-		this.id   = data.id;
-		this.type = data.type;
-		this.top  = data.position.top + 15;
-		this.left = data.position.left;
+		this.id   = data.id,
+		this.top  = data.top + 15,		
+		this.left = data.left
 	};
 	
 	game = {
 				
 		init: function init() {
 						
-			var that, canvas, interval;
+			var canvas, interval;
+						
+			canvas   = document.getElementById('canvas');
+			this.ctx = canvas.getContext('2d');
+					
+			assets.field   = new Asset('gfx/field.png');
+			assets.ball    = new Asset('gfx/ball.png');
+			assets.wallL   = new Asset('gfx/wall-L.png');
+			assets.wallR   = new Asset('gfx/wall-R.png');
+			assets.playerL = new Asset('gfx/player-L.png');
+			assets.playerR = new Asset('gfx/player-R.png');
+			assets.racketL = new Asset('gfx/racket-L.png');			
+			assets.racketR = new Asset('gfx/racket-R.png');
 			
-			that = this;
-			
-			canvas   = document.getElementById("canvas");
-			this.ctx = canvas.getContext("2d");
-			
-			this.field  = new Asset("gfx/bg.jpg");
-			this.ball   = new Asset("gfx/ball.jpg");
-			this.player = new Asset("gfx/player.jpg");
-			this.racket = new Asset("gfx/racket.jpg");
-			
-			interval = setInterval(function () {		
-				if (game.field.ready && game.ball.ready && game.player.ready && game.racket.ready) {
+			interval = setInterval(function () {									
+				if (game.ready()) {
 					clearInterval(interval);
-					that.run();
+					game.run();
 				}
 			}, 13);
+		},
+		
+		ready: function ready() {
+			
+			var asset;
+						
+			for (asset in assets) {
+				if (assets.hasOwnProperty(asset)) {
+					if (assets[asset].ready === false) {
+						return false;
+					}
+				}
+			}
+			return true;
 		},
 		
 		run: function run() {
@@ -64,31 +81,87 @@
 		    draw();			
 		},
 		
+		update: function update(elem) {
+			
+			if (elem.id.match(/ball-/gi)) {
+				
+				if (ball === undefined) {
+					ball = new Element(elem);				
+				} else {								
+					ball.top  = elem.top + 15;
+					ball.left = elem.left;
+				}
+				
+			} else if (elem.id === me.id) {
+				
+				if (player === undefined) {
+					player = new Element(elem);				
+				} else {								
+					player.top  = elem.top + 15;
+					player.left = elem.left;
+				}
+				
+			} else if (elem.left === 0) {
+				
+				if (!left.hasOwnProperty(elem.id)) {
+					left[elem.id] = new Element(elem);				
+				} else {								
+					left[elem.id].top  = elem.top + 15;
+					left[elem.id].left = elem.left;
+				}
+			
+			} else {
+				
+				if (!right.hasOwnProperty(elem.id)) {
+					right[elem.id] = new Element(elem);				
+				} else {								
+					right[elem.id].top  = elem.top + 15;
+					right[elem.id].left = elem.left;
+				}
+			}
+		},
+		
 		draw: function draw() {
 			
-			var id, elem, ball, player;
+			var id, elem, counter;			
 			
-			this.ctx.drawImage(this.field.asset, 0, 0);	
+			counter = 0;
 			
-			for (id in data) {
-				if (data.hasOwnProperty(id)) {
-					elem = data[id];
-					if (elem.type === 'ball') {
-						ball = elem;
-					} else if (elem.id === me.id) {
-						player = elem;
-					} else {
-						this.ctx.drawImage(this.racket.asset, elem.left, elem.top);
-					}
+			this.ctx.drawImage(assets.field.image, 0, 0);
+			
+			for (id in left) {
+				if (left.hasOwnProperty(id)) {
+					this.ctx.drawImage(assets.racketL.image, 0, left[id].top);
+					counter = counter + 1;
+				}
+			}
+			
+			for (id in right) {
+				if (right.hasOwnProperty(id)) {
+					this.ctx.drawImage(assets.racketR.image, 990, right[id].top);
+					counter = counter + 1;					
 				}
 			}
 			
 			if (player !== undefined) {
-				this.ctx.drawImage(this.player.asset, player.left, player.top);
+				if (player.left === 0) {
+					if (counter === 0) {
+						this.ctx.drawImage(assets.wallR.image, 983, 0);
+					}
+					this.ctx.drawImage(assets.playerL.image, 0, player.top);
+				} else {
+					if (counter === 0) {
+						this.ctx.drawImage(assets.wallL.image, 0, 0);
+					}
+					this.ctx.drawImage(assets.playerR.image, 990, player.top);
+				}
 			}
 			
 			if (ball !== undefined) {
-				this.ctx.drawImage(this.ball.asset, ball.left, ball.top);
+				
+				console.log(ball.left + ' - ' + ball.top);
+				
+				this.ctx.drawImage(assets.ball.image, ball.left, ball.top);
 			}
 			
 			return true;	
@@ -98,34 +171,29 @@
 	socket = {
 						
 		init: function init() {
-						
-			this.io = io.connect(conf.server, {'port': conf.port});			
-			this.io.on('message', function (msg) {
-				
-				var id, obj, elem;						
-				if (msg.hasOwnProperty('id')) {
 					
-					id = msg.id;					
-					if (!data.hasOwnProperty(id)) {
-						me.init(msg);
+			this.io = io.connect(conf.server, {'port': conf.port});			
+			this.io.on('message', function (data) {
+								
+				var id, elem;						
+				if (data.hasOwnProperty('id')) {
+										
+					id = data.id;					
+					if (player === undefined) {						
+						me.init(data);
+					} else if (data.left === 0) {
+						delete left[id];
 					} else {
-						delete data[id];
+						delete right[id];
 					}
 				
 				} else {
 					
-					for (id in msg) {
-						if (msg.hasOwnProperty(id)) {
-							obj = msg[id];
-							if (!data.hasOwnProperty(obj.id)) {
-								data[obj.id] = new Element(obj);
-							} else {
-								elem      = data[obj.id];
-								elem.top  = obj.position.top + 15;
-								elem.left = obj.position.left;
-							}
+					for (id in data) {
+						if (data.hasOwnProperty(id)) {
+							game.update(data[id]);
 						}
-					}					
+					}						
 				}								
 			});			
 		}	
@@ -133,33 +201,30 @@
 				
 	me = {
 		
-		init: function init(obj) {
+		init: function init(elem) {
 			
-			this.id = obj.id;		
+			this.id = elem.id;		
 			this.isMoving = false;
-			
-			data[obj.id] = new Element(obj);
-			
+						
 			window.addEventListener('keydown', this.onMove, true);
 			window.addEventListener('keyup',   this.onMove, true);
 		},
 		
 		onMove: function onMove(e) {
 									
-			var that, keycode, type, data;
+			var keycode, type, data;
 			
-			that = me;
 			keycode = e.keyCode;
-			type = e.type;
-								
+			type    = e.type;
+							
 			if (keycode === 38 || keycode === 40) {		
 				e.preventDefault();
 			
-				if (type === 'keydown' && that.isMoving === false) {
+				if (type === 'keydown' && me.isMoving === false) {
 				
-					that.isMoving = true;
+					me.isMoving = true;
 					data = {
-						moving: that.isMoving,
+						moving: me.isMoving,
 						velocity: {
 							y: 1
 						}
@@ -170,11 +235,11 @@
 					}
 					socket.io.json.send(data);
 				
-				} else if (type === 'keyup' && that.isMoving === true) {
+				} else if (type === 'keyup' && me.isMoving === true) {
 				
-					that.isMoving = false;
+					me.isMoving = false;
 					data = {
-						moving: that.isMoving,
+						moving: me.isMoving,
 						velocity: {
 							y: -1
 						}

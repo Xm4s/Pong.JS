@@ -9,14 +9,33 @@
 	
 	ctx = document.getElementById('canvas').getContext('2d');
 		
-	Asset = function Asset(url) {
+	Asset = function Asset(type, url) {
 		
-		var that = this;
+		var that, interval;
 		
+		that = this;
 		this.ready = false;
-		this.image = new Image();
-		this.image.onload = function () { that.ready = true; };
-		this.image.src = url;		
+		
+		if (type === 'image') {
+			this.image = new Image();
+			this.image.onload = function () { that.ready = true; };
+			this.image.src = url;
+		} 
+		else if (type === 'sound') {
+			this.sound = new Audio();
+			this.sound.playing = false;
+			
+			this.sound.onplaying = function () { that.sound.playing = true; }
+			this.sound.onended   = function () { that.sound.playing = false; }
+			
+			this.sound.src = url;
+			interval = setInterval(function() {
+				if(that.sound.readyState) {
+					clearInterval(interval);
+					that.ready = true;
+				}
+			}, 13);
+		}		
 	};
 	
 	game = {
@@ -25,22 +44,26 @@
 						
 			var canvas, interval;
 					
-			assets.field   = new Asset('gfx/field.png');
-			assets.ball    = new Asset('gfx/ball.png');
-			assets.wallL   = new Asset('gfx/wall-L.png');
-			assets.wallR   = new Asset('gfx/wall-R.png');
-			assets.playerL = new Asset('gfx/player-L.png');
-			assets.playerR = new Asset('gfx/player-R.png');
-			assets.racketL = new Asset('gfx/racket-L.png');			
-			assets.racketR = new Asset('gfx/racket-R.png');
+			assets.field   = new Asset('image', 'gfx/field.png');
+			assets.ball    = new Asset('image', 'gfx/ball.png');
+			assets.wallL   = new Asset('image', 'gfx/wall-L.png');
+			assets.wallR   = new Asset('image', 'gfx/wall-R.png');
+			assets.playerL = new Asset('image', 'gfx/player-L.png');
+			assets.playerR = new Asset('image', 'gfx/player-R.png');
+			assets.racketL = new Asset('image', 'gfx/racket-L.png');			
+			assets.racketR = new Asset('image', 'gfx/racket-R.png');
 			
-			now.clientInit = me.init;
-			now.draw = game.draw;
+			assets.pong    = new Asset('sound', 'assets/sounds/pong.wav');
 			
-			interval = setInterval(function () {									
-				if (game.ready() && now.sync !== undefined) {					
+			interval = setInterval(function () {
+				if (game.ready() && now.sync !== undefined) {
 					clearInterval(interval);
-					game.run();			
+					
+					now.clientInit = me.init;
+					now.draw  = game.draw;
+					now.sound = game.sound;
+					
+					game.run();
 				}
 			}, 13);
 		},
@@ -76,14 +99,13 @@
 		draw: function draw(data) {
 			
 			var counter, ball, player, id, elem;
-						
-			counter = 0;			
-						
+			
+			counter = 0;		
 			ctx.drawImage(assets.field.image, 0, 0);
 			
 			if (data !== undefined) {
 				
-				for (id in data) {				
+				for (id in data) {
 					if (data.hasOwnProperty(id)) {
 						elem = data[id];
 						if (elem.id === 'BALL') {
@@ -93,9 +115,9 @@
 						} else {
 							counter = counter + 1;
 							if (elem.left === 0) {
-								ctx.drawImage(assets.racketL.image, elem.left, elem.top);
+								ctx.drawImage(assets.racketL.image, 0, elem.top);
 							} else {
-								ctx.drawImage(assets.racketR.image, elem.left, elem.top);
+								ctx.drawImage(assets.racketR.image, 990, elem.top);
 							}
 						}
 					}
@@ -106,12 +128,12 @@
 						if (counter === 0) {
 							ctx.drawImage(assets.wallR.image, 983, 0);
 						}
-						ctx.drawImage(assets.playerL.image, player.left, player.top);
+						ctx.drawImage(assets.playerL.image, 0, player.top);
 					} else {
 						if (counter === 0) {
 							ctx.drawImage(assets.wallL.image, 0, 0);
 						}
-						ctx.drawImage(assets.playerR.image, player.left, player.top);
+						ctx.drawImage(assets.playerR.image, 990, player.top);
 					}
 				}
 				
@@ -121,6 +143,14 @@
 			}
 						
 			return true;
+		},
+		
+		sound: function sound() {
+			
+			var effect = assets.pong.sound;
+			if (!effect.playing) {
+				effect.play();
+			}
 		}
 	};
 					

@@ -13,7 +13,7 @@ require.paths.push('/usr/local/lib/node_modules');
 	settings   = {};
 	boundaries = {};
 	
-	settings.cycle 	= 1000;
+	settings.cycle 	= 200;
 	settings.field  = { w: 1005, h: 585 };
 	settings.racket = { w: 15,   h: 65, v: 250 / settings.cycle };
 	settings.ball   = { w: 15,   h: 15, v: 250 / settings.cycle };
@@ -275,6 +275,8 @@ require.paths.push('/usr/local/lib/node_modules');
 						if (isBall) {
 							if (newTop === 0 || newTop === hLimit) {
 								vel.y = -vel.y;
+								
+								socket.everyone.now.sound();
 							}
 
 							wLimit = boundaries.racket.w - wBall;
@@ -312,6 +314,8 @@ require.paths.push('/usr/local/lib/node_modules');
 				
 				obj.velocity.x = -obj.velocity.x;
 				this.velocity(obj);
+				
+				socket.everyone.now.sound();
 			
 			} else {
 								
@@ -328,6 +332,9 @@ require.paths.push('/usr/local/lib/node_modules');
 							if (racketTop < objSpace && objTop < racketTop + settings.racket.h) {
 								obj.velocity.x = -obj.velocity.x;
 								this.velocity(obj);
+								
+								socket.everyone.now.sound();
+								
 								break;
 							}
 						}

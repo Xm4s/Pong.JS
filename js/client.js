@@ -44,14 +44,14 @@
 						
 			var canvas, interval;
 					
-			assets.field   = new Asset('image', 'gfx/field.png');
-			assets.ball    = new Asset('image', 'gfx/ball.png');
-			assets.wallL   = new Asset('image', 'gfx/wall-L.png');
-			assets.wallR   = new Asset('image', 'gfx/wall-R.png');
-			assets.playerL = new Asset('image', 'gfx/player-L.png');
-			assets.playerR = new Asset('image', 'gfx/player-R.png');
-			assets.racketL = new Asset('image', 'gfx/racket-L.png');			
-			assets.racketR = new Asset('image', 'gfx/racket-R.png');
+			assets.field   = new Asset('image', 'assets/gfx/field.png');
+			assets.ball    = new Asset('image', 'assets/gfx/ball.png');
+			assets.wallL   = new Asset('image', 'assets/gfx/wall-L.png');
+			assets.wallR   = new Asset('image', 'assets/gfx/wall-R.png');
+			assets.playerL = new Asset('image', 'assets/gfx/player-L.png');
+			assets.playerR = new Asset('image', 'assets/gfx/player-R.png');
+			assets.racketL = new Asset('image', 'assets/gfx/racket-L.png');			
+			assets.racketR = new Asset('image', 'assets/gfx/racket-R.png');
 			
 			assets.pong    = new Asset('sound', 'assets/sounds/pong.wav');
 			

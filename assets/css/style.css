@@ -4,10 +4,10 @@
 ***************************************/
 
 html, body {
-	background-color: #000;
+	background : #000;
 }
 
 #game {
-	width: 1005px;
-	margin: 0 auto;
+	width  : 1005px;
+	margin : 0 auto;
 }

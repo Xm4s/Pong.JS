@@ -1,0 +1,8 @@
+{
+  "name": "Pong.JS",
+  "description": "Simple Multiplayer Pong written in Node.JS",
+  "dependencies": {
+    "express": "2.x.x",
+    "now": "0.x.x"
+  }
+}
